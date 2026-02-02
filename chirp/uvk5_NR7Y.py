@@ -42,6 +42,30 @@ CW_KEY_INPUT_MODES = [
 # Map menu selection to bit-mapped values (from firmware)
 CW_KEY_INPUT_BITMAP = [0x08, 0x18, 0x04, 0x05, 0x12, 0x13, 0x16, 0x17]
 
+# Complete programmable key actions list from firmware (settings.h:105-127)
+# This extends the base driver's KEYACTIONS_LIST with NR7Y firmware additions
+KEYACTIONS_LIST = [
+    "None",                      # 0: ACTION_OPT_NONE
+    "Flashlight on/off",         # 1: ACTION_OPT_FLASHLIGHT
+    "Power select",              # 2: ACTION_OPT_POWER
+    "Monitor",                   # 3: ACTION_OPT_MONITOR
+    "Scan on/off",               # 4: ACTION_OPT_SCAN
+    "VOX on/off",                # 5: ACTION_OPT_VOX
+    "Alarm on/off",              # 6: ACTION_OPT_ALARM
+    "FM radio on/off",           # 7: ACTION_OPT_FM
+    "Transmit 1750 Hz",          # 8: ACTION_OPT_1750
+    "Keylock",                   # 9: ACTION_OPT_KEYLOCK (NEW)
+    "A/B",                       # 10: ACTION_OPT_A_B (NEW)
+    "VFO/MR",                    # 11: ACTION_OPT_VFO_MR (NEW)
+    "Switch Demodulation",       # 12: ACTION_OPT_SWITCH_DEMODUL (NEW)
+    "Backlight Min Temp Off",    # 13: ACTION_OPT_BLMIN_TMP_OFF (NEW)
+    "Play CW MSG 1",             # 14: ACTION_OPT_PLAY_CWMSG1 (CW firmware)
+    "Play CW MSG 2",             # 15: ACTION_OPT_PLAY_CWMSG2 (CW firmware)
+    "Play CW MSG 3",             # 16: ACTION_OPT_PLAY_CWMSG3 (CW firmware)
+    "Play CW MSG 4",             # 17: ACTION_OPT_PLAY_CWMSG4 (CW firmware)
+    "Spectrum"                   # 18: ACTION_OPT_SPECTRUM (NEW)
+]
+
 
 @directory.register
 @directory.detected_by(uvk5.UVK5Radio)
@@ -99,6 +123,77 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
             LOG.error(f"Error checking CW firmware flag: {e}")
             return False
 
+    def _update_key_actions(self, rs: RadioSettings) -> None:
+        """Replace programmable key settings with extended action list"""
+        _mem = self._memobj
+        
+        # Find the key actions group
+        keya = None
+        for group in rs:
+            if hasattr(group, 'get_name') and group.get_name() == 'keya':
+                keya = group
+                break
+        
+        if not keya:
+            LOG.warning("Could not find key actions group")
+            return
+        
+        # Remove existing key action settings using del
+        to_remove = []
+        for setting in list(keya):
+            if hasattr(setting, 'get_name'):
+                name = setting.get_name()
+                if 'key' in name and 'action' in name:
+                    to_remove.append(setting)
+        
+        for setting in to_remove:
+            del keya[setting]
+        
+        # Re-add with extended action list
+        tmpval = int(_mem.key1_shortpress_action)
+        if tmpval >= len(KEYACTIONS_LIST):
+            tmpval = 0
+        rs_new = RadioSetting("key1_shortpress_action", "Side key 1 short press",
+                          RadioSettingValueList(
+                              KEYACTIONS_LIST, current_index=tmpval))
+        keya.append(rs_new)
+
+        tmpval = int(_mem.key1_longpress_action)
+        if tmpval >= len(KEYACTIONS_LIST):
+            tmpval = 0
+        rs_new = RadioSetting("key1_longpress_action", "Side key 1 long press",
+                          RadioSettingValueList(
+                              KEYACTIONS_LIST, current_index=tmpval))
+        keya.append(rs_new)
+
+        tmpval = int(_mem.key2_shortpress_action)
+        if tmpval >= len(KEYACTIONS_LIST):
+            tmpval = 0
+        rs_new = RadioSetting("key2_shortpress_action", "Side key 2 short press",
+                          RadioSettingValueList(
+                              KEYACTIONS_LIST, current_index=tmpval))
+        keya.append(rs_new)
+
+        tmpval = int(_mem.key2_longpress_action)
+        if tmpval >= len(KEYACTIONS_LIST):
+            tmpval = 0
+        rs_new = RadioSetting("key2_longpress_action", "Side key 2 long press",
+                          RadioSettingValueList(
+                              KEYACTIONS_LIST, current_index=tmpval))
+        keya.append(rs_new)
+        
+        # Add M key long press (stored in beep_control byte, bits 1-7)
+        beep_byte = int(_mem.beep_control)
+        tmpval = (beep_byte >> 1) & 0x7F
+        if tmpval >= len(KEYACTIONS_LIST):
+            tmpval = 0
+        rs_new = RadioSetting("key_m_longpress_action", "M key long press",
+                          RadioSettingValueList(
+                              KEYACTIONS_LIST, current_index=tmpval))
+        keya.append(rs_new)
+        
+        LOG.info(f"Updated programmable keys with {len(KEYACTIONS_LIST)} actions (including M key)")
+
     def get_settings(self):
         """Get radio settings including CW if detected"""
         LOG.info("UVK5_NR7Y.get_settings() called")
@@ -108,6 +203,9 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
         except Exception as e:
             LOG.error(f"Error getting base settings: {e}")
             rs = RadioSettings()
+        
+        # Update programmable key actions with extended list (includes CW messages)
+        self._update_key_actions(rs)
 
         # Check if CW firmware
         if not self._is_nr7y_cw_firmware():
@@ -220,6 +318,32 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
             # It's an individual setting
             setting = element
             name = setting.get_name()
+            
+            # Handle programmable key actions with extended list
+            if name == "key1_shortpress_action":
+                _mem.key1_shortpress_action = KEYACTIONS_LIST.index(str(setting.value))
+                LOG.debug(f"Set key1_shortpress_action to {setting.value}")
+                continue
+            elif name == "key1_longpress_action":
+                _mem.key1_longpress_action = KEYACTIONS_LIST.index(str(setting.value))
+                LOG.debug(f"Set key1_longpress_action to {setting.value}")
+                continue
+            elif name == "key2_shortpress_action":
+                _mem.key2_shortpress_action = KEYACTIONS_LIST.index(str(setting.value))
+                LOG.debug(f"Set key2_shortpress_action to {setting.value}")
+                continue
+            elif name == "key2_longpress_action":
+                _mem.key2_longpress_action = KEYACTIONS_LIST.index(str(setting.value))
+                LOG.debug(f"Set key2_longpress_action to {setting.value}")
+                continue
+            elif name == "key_m_longpress_action":
+                # M key long press stored in beep_control byte (bits 1-7)
+                action_val = KEYACTIONS_LIST.index(str(setting.value))
+                beep_byte = int(_mem.beep_control)
+                # Preserve bit 0 (beep control), set bits 1-7 (M key action)
+                _mem.beep_control = (beep_byte & 0x01) | ((action_val & 0x7F) << 1)
+                LOG.debug(f"Set key_m_longpress_action to {setting.value}")
+                continue
             
             # Handle CW settings
             if name.startswith("cw."):

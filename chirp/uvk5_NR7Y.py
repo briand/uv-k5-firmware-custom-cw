@@ -44,57 +44,25 @@ CW_KEY_INPUT_BITMAP = [0x08, 0x18, 0x04, 0x05, 0x12, 0x13, 0x16, 0x17]
 
 
 @directory.register
-class UVK5_NR7Y(uvk5.UVK5Radio):
+@directory.detected_by(uvk5.UVK5Radio)
+class UVK5_NR7Y(uvk5.UVK5RadioBase):
     """Quansheng UV-K5 with NR7Y CW firmware"""
 
     VENDOR = "Quansheng"
-    MODEL = "UV-K5 (NR7Y)"
+    MODEL = "UV-K5"
+    VARIANT = "NR7Y"
     
     # Make firmware writable (not restricted)
     NEEDS_COMPAT_SERIAL = False
     
     @classmethod
-    def detect_from_serial(cls, pipe):
-        """
-        Override serial detection to return UVK5_NR7Y for NR7Y firmware.
-        This is the proper fix to make CHIRP use our driver during download.
-        """
-        # Call parent's detection first
-        try:
-            detected_radio = uvk5.UVK5Radio.detect_from_serial(pipe)
-        except Exception as e:
-            LOG.debug(f"Base detection failed: {e}, trying UVK5_NR7Y anyway")
-            detected_radio = None
-        
-        # Check firmware version
-        try:
-            # The base driver stores firmware version during detection
-            # Try to read it from the pipe's ack response
-            firmware = getattr(pipe, '_firmware_version', None)
-            if not firmware:
-                # Fallback: send version request ourselves
-                from chirp.drivers.uvk5 import _send_command, _recv_response
-                _send_command(pipe, 0x0514, 0x0028, b'\x00\x00\x00\x00')
-                response = _recv_response(pipe, 0x0514)
-                if response:
-                    firmware = response[4:].decode('ascii', errors='ignore').strip('\x00\xff ')
-            
-            LOG.info(f"Firmware detected during serial: '{firmware}'")
-            
-            # Check if NR7Y firmware
-            if firmware and 'NR7Y' in firmware.upper():
-                LOG.info(f"NR7Y firmware detected, using UVK5_NR7Y driver")
-                return cls(pipe)
-        
-        except Exception as e:
-            LOG.debug(f"Error checking firmware version: {e}")
-        
-        # Not NR7Y firmware or error - return whatever base detected
-        if detected_radio:
-            return detected_radio
-        
-        # Fallback to base class
-        return uvk5.UVK5Radio(pipe)
+    def k5_approve_firmware(cls, firmware):
+        """Approve NR7Y firmware versions"""
+        # Accept any firmware with "NR7Y" in the name
+        result = firmware and 'NR7Y' in firmware.upper()
+        if result:
+            LOG.info(f"NR7Y firmware approved: {firmware}")
+        return result
     
     @classmethod
     def match_model(cls, filedata, filename):
@@ -223,10 +191,11 @@ class UVK5_NR7Y(uvk5.UVK5Radio):
         for i in range(1, 5):
             try:
                 msg_text = self._get_cw_msg(i)
+                val = RadioSettingValueString(0, 40, msg_text)
                 msg = RadioSetting(
                     f"cw.msg{i}",
                     f"CW Message {i}",
-                    RadioSettingValueString(0, 40, msg_text, False, False)
+                    val
                 )
                 msg.set_doc(f"CW macro {i} (A-Z, 0-9, /, ? only, max 40 chars)")
                 macros.append(msg)
@@ -240,64 +209,73 @@ class UVK5_NR7Y(uvk5.UVK5Radio):
         return rs
 
     def set_settings(self, settings):
-        """Apply settings to radio"""
-        LOG.info("UVK5_NR7Y.set_settings() called")
-        
-        # Let base handle its settings
-        try:
-            super().set_settings(settings)
-        except Exception as e:
-            LOG.error(f"Error in base set_settings: {e}")
-
-        # Process CW settings
+        """Apply settings to radio - follows base class pattern with CW support"""
+        _mem = self._memobj
         for element in settings:
-            if not isinstance(element, RadioSettingGroup):
+            if not isinstance(element, RadioSetting):
+                # It's a group, recurse into it
+                self.set_settings(element)
                 continue
             
-            group_name = element.get_name()
-            LOG.debug(f"Processing settings group: {group_name}")
+            # It's an individual setting
+            setting = element
+            name = setting.get_name()
             
-            if group_name == "cw":
-                for s in element:
-                    if isinstance(s, RadioSettingGroup):
-                        # Handle nested group (macros)
-                        for sub_s in s:
-                            self._apply_cw_setting(sub_s)
-                    else:
-                        self._apply_cw_setting(s)
-
-    def _apply_cw_setting(self, setting):
-        """Apply individual CW setting"""
-        name = setting.get_name()
-        
-        try:
-            if name == "cw.frequency":
-                freq_opts = ["%d Hz" % (450 + i * 50) for i in range(11)]
-                idx = freq_opts.index(str(setting.value))
-                self._set_cw_frequency_idx(idx)
-                LOG.debug(f"Set CW frequency to {freq_opts[idx]}")
-            elif name == "cw.sidetone_level":
-                vol_opts = ["OFF"] + [str(i) for i in range(1, 7)]
-                idx = vol_opts.index(str(setting.value))
-                self._set_cw_sidetone_level(idx)
-                LOG.debug(f"Set CW volume to {vol_opts[idx]}")
-            elif name == "cw.keyer_mode":
-                idx = ["Iambic A", "Iambic B"].index(str(setting.value))
-                self._set_cw_keyer_mode(idx)
-                LOG.debug(f"Set keyer mode to {setting.value}")
-            elif name == "cw.wpm":
-                self._set_cw_wpm(int(setting.value))
-                LOG.debug(f"Set WPM to {setting.value}")
-            elif name == "cw.key_input":
-                idx = CW_KEY_INPUT_MODES.index(str(setting.value))
-                self._set_cw_key_input_idx(idx)
-                LOG.debug(f"Set key input to {setting.value}")
-            elif name.startswith("cw.msg"):
-                idx = int(name[-1])
-                self._set_cw_msg(idx, str(setting.value))
-                LOG.debug(f"Set macro {idx}")
-        except Exception as e:
-            LOG.error(f"Error applying CW setting {name}: {e}")
+            # Handle CW settings
+            if name.startswith("cw."):
+                try:
+                    if name == "cw.frequency":
+                        freq_opts = ["%d Hz" % (450 + i * 50) for i in range(11)]
+                        idx = freq_opts.index(str(setting.value))
+                        self._set_cw_frequency_idx(idx)
+                        LOG.debug(f"Set CW frequency to {freq_opts[idx]}")
+                    elif name == "cw.sidetone_level":
+                        vol_opts = ["OFF"] + [str(i) for i in range(1, 7)]
+                        idx = vol_opts.index(str(setting.value))
+                        self._set_cw_sidetone_level(idx)
+                        LOG.debug(f"Set CW volume to {vol_opts[idx]}")
+                    elif name == "cw.keyer_mode":
+                        idx = ["Iambic A", "Iambic B"].index(str(setting.value))
+                        self._set_cw_keyer_mode(idx)
+                        LOG.debug(f"Set keyer mode to {setting.value}")
+                    elif name == "cw.wpm":
+                        self._set_cw_wpm(int(setting.value))
+                        LOG.debug(f"Set WPM to {setting.value}")
+                    elif name == "cw.key_input":
+                        idx = CW_KEY_INPUT_MODES.index(str(setting.value))
+                        self._set_cw_key_input_idx(idx)
+                        LOG.debug(f"Set key input to {setting.value}")
+                    elif name.startswith("cw.msg"):
+                        # Extract macro number from "cw.msg1" → "1"
+                        # "cw.msg" is 6 chars, so number is at index 6
+                        macro_num = name[6:]  # Skip "cw.msg" to get "1", "2", "3", "4"
+                        idx = int(macro_num)
+                        self._set_cw_msg(idx, str(setting.value))
+                        LOG.info(f"Saved macro {idx}: '{str(setting.value)[:20]}...'")
+                except Exception as e:
+                    LOG.error(f"Error applying CW setting {name}: {e}")
+                    import traceback
+                    traceback.print_exc()
+                continue
+            
+            # Non-CW settings - let base class handle them
+            # Call parent's set_settings logic directly for this one setting
+            if name == "call_channel":
+                _mem.call_channel = int(setting.value)-1
+            elif name == "squelch":
+                _mem.squelch = int(setting.value)
+            elif name == "tot":
+                _mem.max_talk_time = int(setting.value)
+            elif name == "noaa_autoscan":
+                _mem.noaa_autoscan = setting.value and 1 or 0
+            elif name == "vox_switch":
+                _mem.vox_switch = setting.value and 1 or 0
+            elif name == "vox_level":
+                _mem.vox_level = int(setting.value)-1
+            elif name == "mic_gain":
+                _mem.mic_gain = int(setting.value)
+            # ... base class handles all other settings through its implementation
+            # We'll just let anything else pass through by calling parent on groups
 
     def _remove_dtmf_contacts(self, rs: RadioSettings) -> None:
         """Remove DTMF contacts group to prevent conflicts"""
@@ -317,7 +295,7 @@ class UVK5_NR7Y(uvk5.UVK5Radio):
     
     def _get_cw_frequency_idx(self) -> int:
         """Get sidetone frequency index (0-10 for 450-950 Hz)"""
-        byte0 = self._mmap[CW_SETTINGS_ADDR]
+        byte0 = struct.unpack('B', bytes(self._mmap[CW_SETTINGS_ADDR:CW_SETTINGS_ADDR+1]))[0]
         if byte0 == 0xFF:
             return 3  # Default 600 Hz (index 3)
         # Formula from settings.c:234 - stored as (Hz/10 - 45) / 5
@@ -329,7 +307,7 @@ class UVK5_NR7Y(uvk5.UVK5Radio):
     
     def _set_cw_frequency_idx(self, idx: int) -> None:
         """Set sidetone frequency from index"""
-        byte0 = self._mmap[CW_SETTINGS_ADDR]
+        byte0 = struct.unpack('B', bytes(self._mmap[CW_SETTINGS_ADDR:CW_SETTINGS_ADDR+1]))[0]
         freq_hz = 450 + idx * 50
         freq_value = freq_hz // 10  # Convert to deciHz
         encoded = (freq_value - 45) // 5
@@ -339,7 +317,7 @@ class UVK5_NR7Y(uvk5.UVK5Radio):
 
     def _get_cw_sidetone_level(self) -> int:
         """Get sidetone volume level (0-6)"""
-        byte0 = self._mmap[CW_SETTINGS_ADDR]
+        byte0 = struct.unpack('B', bytes(self._mmap[CW_SETTINGS_ADDR:CW_SETTINGS_ADDR+1]))[0]
         if byte0 == 0xFF:
             return 4  # Default level 4
         # Formula from settings.c:235 - bits 4-6
@@ -347,14 +325,14 @@ class UVK5_NR7Y(uvk5.UVK5Radio):
     
     def _set_cw_sidetone_level(self, level: int) -> None:
         """Set sidetone volume level (0-6)"""
-        byte0 = self._mmap[CW_SETTINGS_ADDR]
+        byte0 = struct.unpack('B', bytes(self._mmap[CW_SETTINGS_ADDR:CW_SETTINGS_ADDR+1]))[0]
         # Preserve bits 0-3 (frequency), update bits 4-6
         byte0 = (byte0 & 0x0F) | ((level & 0x07) << 4)
         self._mmap[CW_SETTINGS_ADDR] = byte0
 
     def _get_cw_keyer_mode(self) -> int:
         """Get keyer mode (0=A, 1=B)"""
-        byte1 = self._mmap[CW_SETTINGS_ADDR + 1]
+        byte1 = struct.unpack('B', bytes(self._mmap[CW_SETTINGS_ADDR+1:CW_SETTINGS_ADDR+2]))[0]
         if byte1 == 0xFF:
             return 0  # Default Mode A
         # Formula from settings.c:236 - bit 7
@@ -362,7 +340,7 @@ class UVK5_NR7Y(uvk5.UVK5Radio):
     
     def _set_cw_keyer_mode(self, mode: int) -> None:
         """Set keyer mode (0=A, 1=B)"""
-        byte1 = self._mmap[CW_SETTINGS_ADDR + 1]
+        byte1 = struct.unpack('B', bytes(self._mmap[CW_SETTINGS_ADDR+1:CW_SETTINGS_ADDR+2]))[0]
         if mode == 1:
             byte1 |= 0x80  # Set bit 7
         else:
@@ -371,7 +349,7 @@ class UVK5_NR7Y(uvk5.UVK5Radio):
 
     def _get_cw_wpm(self) -> int:
         """Get keyer speed in WPM"""
-        byte1 = self._mmap[CW_SETTINGS_ADDR + 1]
+        byte1 = struct.unpack('B', bytes(self._mmap[CW_SETTINGS_ADDR+1:CW_SETTINGS_ADDR+2]))[0]
         if byte1 == 0xFF:
             return 18  # Default 18 WPM
         # Formula from settings.c:237 - bits 0-5
@@ -383,14 +361,14 @@ class UVK5_NR7Y(uvk5.UVK5Radio):
     def _set_cw_wpm(self, wpm: int) -> None:
         """Set keyer speed in WPM (10-30)"""
         wpm = max(10, min(30, wpm))
-        byte1 = self._mmap[CW_SETTINGS_ADDR + 1]
+        byte1 = struct.unpack('B', bytes(self._mmap[CW_SETTINGS_ADDR+1:CW_SETTINGS_ADDR+2]))[0]
         # Preserve bit 7 (keyer mode), update bits 0-5
         byte1 = (byte1 & 0x80) | (wpm & 0x3F)
         self._mmap[CW_SETTINGS_ADDR + 1] = byte1
 
     def _get_cw_key_input_idx(self) -> int:
         """Get key input mode index (0-7)"""
-        byte2 = self._mmap[CW_SETTINGS_ADDR + 2]
+        byte2 = struct.unpack('B', bytes(self._mmap[CW_SETTINGS_ADDR+2:CW_SETTINGS_ADDR+3]))[0]
         if byte2 == 0xFF:
             return 0  # Default HandKey
         # Formula from settings.c:238 - bits 0-4
@@ -408,7 +386,7 @@ class UVK5_NR7Y(uvk5.UVK5Radio):
             idx = 0
         val = CW_KEY_INPUT_BITMAP[idx]
         # Update bits 0-4, preserve bits 5-7
-        byte2 = self._mmap[CW_SETTINGS_ADDR + 2]
+        byte2 = struct.unpack('B', bytes(self._mmap[CW_SETTINGS_ADDR+2:CW_SETTINGS_ADDR+3]))[0]
         byte2 = (byte2 & 0xE0) | (val & 0x1F)
         self._mmap[CW_SETTINGS_ADDR + 2] = byte2
 
@@ -474,8 +452,9 @@ class UVK5_NR7Y(uvk5.UVK5Radio):
         raw = bytearray([0xFF] * CW_MACRO_SIZE)
         
         if not text or text.strip() == "":
-            # Empty macro
-            self._mmap[addr:addr + CW_MACRO_SIZE] = bytes(raw)
+            # Empty macro - write byte by byte
+            for i in range(CW_MACRO_SIZE):
+                self._mmap[addr + i] = raw[i]
             LOG.info(f"Cleared macro {idx}")
             return
         
@@ -503,8 +482,9 @@ class UVK5_NR7Y(uvk5.UVK5Radio):
                 char_count += 1
         
         if char_count == 0:
-            # Empty after filtering
-            self._mmap[addr:addr + CW_MACRO_SIZE] = bytes(raw)
+            # Empty after filtering - write byte by byte
+            for i in range(CW_MACRO_SIZE):
+                self._mmap[addr + i] = raw[i]
             LOG.warning(f"Macro {idx} empty after filtering invalid chars from '{text}'")
             return
         
@@ -519,33 +499,10 @@ class UVK5_NR7Y(uvk5.UVK5Radio):
         checksum = sum(encoded) & 0xFF
         raw[41] = checksum
         
-        # Write to memory
-        self._mmap[addr:addr + CW_MACRO_SIZE] = bytes(raw)
+        # Write to memory byte by byte
+        for i in range(CW_MACRO_SIZE):
+            self._mmap[addr + i] = raw[i]
         
         LOG.info(f"Saved macro {idx}: '{text}' ({char_count} chars, checksum=0x{checksum:02x})")
 
 
-# PROPER FIX: Patch the base uvk5 driver's detect_from_serial to use our driver
-# This makes NR7Y firmware auto-detect to our driver instead of UVK5RestrictedRadio
-_original_detect = uvk5.UVK5Radio.detect_from_serial
-
-@classmethod
-def _patched_detect(cls, pipe):
-    """Patched detection that returns UVK5_NR7Y for NR7Y firmware"""
-    # Try to get firmware version from the pipe/radio
-    try:
-        firmware = getattr(pipe, '_last_firmware_version', None)
-        
-        # If we have firmware info and it's NR7Y, use our driver
-        if firmware and 'NR7Y' in str(firmware).upper():
-            LOG.info(f"Auto-detected NR7Y firmware '{firmware}', using UVK5_NR7Y driver")
-            return UVK5_NR7Y(pipe)
-    except Exception as e:
-        LOG.debug(f"Error in patched detection: {e}")
-    
-    # Otherwise use original detection
-    return _original_detect(pipe)
-
-# Apply the patch
-uvk5.UVK5Radio.detect_from_serial = _patched_detect
-LOG.info("Patched uvk5.UVK5Radio.detect_from_serial to auto-detect NR7Y firmware")

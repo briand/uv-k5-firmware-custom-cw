@@ -48,7 +48,7 @@ class UVK5_NR7Y(uvk5.UVK5Radio):
     """Quansheng UV-K5 with NR7Y CW firmware"""
 
     VENDOR = "Quansheng"
-    MODEL = "UV-K5 (NR7Y CW)"
+    MODEL = "UV-K5 (NR7Y)"
     
     # Make firmware writable (not restricted)
     NEEDS_COMPAT_SERIAL = False

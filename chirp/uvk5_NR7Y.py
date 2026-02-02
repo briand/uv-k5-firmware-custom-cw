@@ -402,18 +402,18 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
             # We'll just let anything else pass through by calling parent on groups
 
     def _remove_dtmf_contacts(self, rs: RadioSettings) -> None:
-        """Remove DTMF contacts group to prevent conflicts"""
-        removed = []
+        """Remove DTMF contacts group to prevent conflicts with CW macros"""
+        to_remove = []
         for group in list(rs):
             if hasattr(group, 'get_name'):
                 name = group.get_name()
-                # Remove any DTMF contact groups
-                if 'contact' in name.lower() and 'dtmf' in name.lower():
-                    rs.remove(group)
-                    removed.append(name)
+                # Remove DTMF contact group (uses same memory as CW macros)
+                if name == 'dtmfc':
+                    to_remove.append(group)
         
-        if removed:
-            LOG.info(f"Removed DTMF contact groups: {removed}")
+        for group in to_remove:
+            rs.remove(group)
+            LOG.info(f"Removed DTMF contacts group '{group.get_name()}' (conflicts with CW macros)")
 
     # ======== CW Settings Encode/Decode ========
     

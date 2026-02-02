@@ -66,6 +66,8 @@ inline static void ACTION_ScanRestart() { ACTION_Scan(true); };
 #ifdef ENABLE_CW_MODULATOR
 static void ACTION_PlayCWMsg1(void);
 static void ACTION_PlayCWMsg2(void);
+static void ACTION_PlayCWMsg3(void);
+static void ACTION_PlayCWMsg4(void);
 #endif
 
 void (*action_opt_table[])(void) = {
@@ -117,6 +119,8 @@ void (*action_opt_table[])(void) = {
 #ifdef ENABLE_CW_MODULATOR
 	[ACTION_OPT_PLAY_CWMSG1] = &ACTION_PlayCWMsg1,
 	[ACTION_OPT_PLAY_CWMSG2] = &ACTION_PlayCWMsg2,
+	[ACTION_OPT_PLAY_CWMSG3] = &ACTION_PlayCWMsg3,
+	[ACTION_OPT_PLAY_CWMSG4] = &ACTION_PlayCWMsg4,
 #else
 	[ACTION_OPT_PLAY_CWMSG1] = &FUNCTION_NOP,
 	[ACTION_OPT_PLAY_CWMSG2] = &FUNCTION_NOP,
@@ -421,6 +425,16 @@ static void ACTION_PlayCWMsg1(void)
 static void ACTION_PlayCWMsg2(void)
 {
 	CW_StartMacroPlayback(1);
+}
+
+static void ACTION_PlayCWMsg3(void)
+{
+	CW_StartMacroPlayback(2);
+}
+
+static void ACTION_PlayCWMsg4(void)
+{
+	CW_StartMacroPlayback(3);
 }
 #endif
 

@@ -414,6 +414,8 @@ int MENU_GetLimits(uint8_t menu_id, int32_t *pMin, int32_t *pMax)
 
 		case MENU_CW_MSG1:
 		case MENU_CW_MSG2:
+		case MENU_CW_MSG3:
+		case MENU_CW_MSG4:
 			*pMin = 0;
 			*pMax = 2;  // show, record, play
 			break;
@@ -896,7 +898,9 @@ void MENU_AcceptSetting(void)
 
 		case MENU_CW_MSG1:
 		case MENU_CW_MSG2:
-			uint8_t macroIdx = (UI_MENU_GetCurrentMenuId() == MENU_CW_MSG1) ? 0 : 1;
+		case MENU_CW_MSG3:
+		case MENU_CW_MSG4:
+			uint8_t macroIdx = UI_MENU_GetCurrentMenuId() - MENU_CW_MSG1;
 			// If gSubMenuSelection == 1, user selected "record new"
 			if (gSubMenuSelection == 1) {
 				// Check if we're in CW mode
@@ -1327,6 +1331,8 @@ void MENU_ShowCurrentSetting(void)
 
 		case MENU_CW_MSG1:
 		case MENU_CW_MSG2:
+		case MENU_CW_MSG3:
+		case MENU_CW_MSG4:
 			gSubMenuSelection = 0;  // Default to showing current macro
 			break;
 #endif
@@ -1705,7 +1711,7 @@ static void MENU_Key_MENU(const bool bKeyPressed, const bool bKeyHeld)
 		{
 #ifdef ENABLE_CW_MODULATOR
 			// Special handling: if we're about to start CW macro recording, stay in submenu
-			if ((UI_MENU_GetCurrentMenuId() == MENU_CW_MSG1 || UI_MENU_GetCurrentMenuId() == MENU_CW_MSG2) 
+			if ((UI_MENU_GetCurrentMenuId() >= MENU_CW_MSG1 && UI_MENU_GetCurrentMenuId() <= MENU_CW_MSG4)
 			    && gSubMenuSelection == 1)
 			{
 				// User is confirming "record new?" - check if we're in CW mode
@@ -1836,7 +1842,7 @@ static void MENU_Key_UP_DOWN(bool bKeyPressed, bool bKeyHeld, int8_t Direction)
 #ifdef ENABLE_CW_MODULATOR
 	if (gIsInSubMenu && UI_MENU_GetCurrentMenuId() == MENU_CW_KEY_INPUT)
 		gCwKeyInputCheckFailed = false;  // Clear error when changing value with UP/DOWN
-	if (gIsInSubMenu && (UI_MENU_GetCurrentMenuId() == MENU_CW_MSG1 || UI_MENU_GetCurrentMenuId() == MENU_CW_MSG2))
+	if (gIsInSubMenu && (UI_MENU_GetCurrentMenuId() >= MENU_CW_MSG1 && UI_MENU_GetCurrentMenuId() <= MENU_CW_MSG4))
 		gCwNoKeyerError = false;  // Clear error when changing value with UP/DOWN
 #endif
 

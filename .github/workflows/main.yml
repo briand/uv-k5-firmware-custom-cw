@@ -22,7 +22,7 @@ jobs:
         run:  pacman -Syyu python-crcmod --noconfirm      
 
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         
       - name: safe.directory
         run:  git config --global --add safe.directory /__w/uv-k5-firmware-custom/uv-k5-firmware-custom        
@@ -32,7 +32,7 @@ jobs:
         run:  arm-none-eabi-size firmware
 
       - name: 'Upload Artifact'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: firmware
           path: firmware*.bin
@@ -43,7 +43,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: firmware.packed.bin
-          asset_name: egzumer_$tag.packed.bin
+          asset_name: egzumer_${{ github.ref_name }}.packed.bin
           tag: ${{ github.ref }}
           overwrite: true
           release_name: release ${{ github.ref_name }}     

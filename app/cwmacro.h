@@ -11,7 +11,7 @@
 
 // Keep full 40-character payload and store a checksum byte after the payload
 #define CW_MACRO_MAX_LEN 40  // payload bytes
-#define CW_MACRO_COUNT 2
+#define CW_MACRO_COUNT 4
 // Block layout: [0]=len|SIG, [1..40]=payload bytes (encoded), [41]=checksum
 #define CW_MACRO_BLOCK_SIZE 42
 
@@ -25,6 +25,8 @@
 
 #define CW_MACRO1_EEPROM_ADDR 0x1C00
 #define CW_MACRO2_EEPROM_ADDR (CW_MACRO1_EEPROM_ADDR + CW_MACRO_BLOCK_SIZE)  /* ensures blocks don't overlap */
+#define CW_MACRO3_EEPROM_ADDR (CW_MACRO2_EEPROM_ADDR + CW_MACRO_BLOCK_SIZE)  /* 0x1C54 */
+#define CW_MACRO4_EEPROM_ADDR (CW_MACRO3_EEPROM_ADDR + CW_MACRO_BLOCK_SIZE)  /* 0x1C7E */
 
 // Encoding/Decoding helper macros
 #define CW_MACRO_ENCODE(ch, hasSpace) ((hasSpace) ? ((ch) | 0x80) : (ch))
@@ -65,7 +67,7 @@ void CW_EncoderProcessElement(CW_ElementType_t element);
 
 // Recording state management
 extern bool gCW_Recording;
-extern uint8_t gCW_RecordMacroIndex;  // Which macro (0 or 1)
+extern uint8_t gCW_RecordMacroIndex;  // Which macro (0-3)
 extern uint8_t gCW_RecordBuffer[CW_MACRO_MAX_LEN];  // Encoded characters
 extern uint8_t gCW_RecordLength;  // Current length
 extern bool gCW_RecordNewChar;  // Flag: new character ready for display update

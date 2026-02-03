@@ -85,7 +85,9 @@ uint8_t gCW_TX_DisplayIndex = 0;
 bool gCW_TX_DisplayUpdated = false;
 static const uint16_t MACRO_ADDRS[CW_MACRO_COUNT] = {
 	CW_MACRO1_EEPROM_ADDR,
-	CW_MACRO2_EEPROM_ADDR
+	CW_MACRO2_EEPROM_ADDR,
+	CW_MACRO3_EEPROM_ADDR,
+	CW_MACRO4_EEPROM_ADDR
 };
 
 bool CW_ValidateChar(char ch)

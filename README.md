@@ -1,3 +1,29 @@
+# NR7Y's CW mod for the egzumer firmware
+
+This repository builds on the egzumer codebase by adding a set of features specifically for CW operators.
+
+- High-speed RX/TX switching for realtime Morse code sending in true CW modulation
+- Automatic Iambic keyer with A/B modes
+- Internal paddle support with PTT/Side1 buttons
+- External paddle support with rework - allows direct connection of a standard paddle
+- Macro message recording by keying and playback
+- Extra filter option - 1.7kHz bandwidth
+
+This project is currently **beta**; some features are still missing, some bugs exist. Some probably always will.
+
+This firmware only supports the V1 Quansheng hardware, as per the original egzumer project. Once a 1.0 release is made, will follow to apply this mod onto the excellent work by [F4HWN](https://github.com/armel/uv-k1-k5v3-firmware-custom) to provide updated support for the V3 hardware.
+
+To make room for the CW features, some of the egzumer mods and radio functions have been disabled:
+
+- _disabled_ FM broadcast radio, DTMF dialing/contacts, VOX, NOAA, Air Copy, TX audio bar, low-level backlight
+- Most of these are removed to save program flash space. DTMF contacts are removed specifically to reuse that section of eeprom to store CW message text
+
+See [the firmware readme](NR7Y_FIRMWARE_README.md) for additional details about the new menu options and functionality in the mod.
+
+This code continues to be available under the Apache 2.0 license.
+
+> The below text retains the original egzumer README
+
 # Open re-implementation of the Quansheng UV-K5/K6/5R v2.1.27 firmware
 
 This repository is a merge of [OneOfEleven custom firmware](https://github.com/OneOfEleven/uv-k5-firmware-custom) with [fagci spectrum analizer](https://github.com/fagci/uv-k5-firmware-fagci-mod/tree/refactor) plus my few changes.<br>

@@ -22,7 +22,7 @@ CW_Action_t CW_HandleState(void);
 void CW_UpdateWPM();
 
 // Optional: request reconfigure at next safe boundary (applied at gap or idle)
-void CW_KeyerReconfigure(void);
+void CW_KeyerReconfigure(bool enable);
 
 // Check keyer inputs before mode change: returns true if inputs valid, false to abort
 // new_mode: The CW_KeyInputType_t mode to validate

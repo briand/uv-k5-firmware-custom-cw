@@ -102,7 +102,7 @@ bool CW_ReadKeysForMode(uint8_t mode, bool *dit_out, bool *dah_out)
     bool hw_ring = false;
 
     // Read button ring input if enabled
-    if (mode & CW_KEY_FLAG_BUTTONS) {
+    if (mode & CW_KEY_FLAG_SIDE1) {
         CW_ReadSideButton(&hw_ring);
     }
 

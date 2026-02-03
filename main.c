@@ -162,7 +162,7 @@ void Main(void)
 	if (!CW_CheckKeyerInputs(gEeprom.CW_KEY_INPUT)) {
 		gEeprom.CW_KEY_INPUT = CW_KEY_INPUT_HANDKEY;
 		gRequestSaveSettings = true;
-		CW_KeyerReconfigure();  // Force keyer to reinitialize with handkey mode
+		CW_KeyerReconfigure(true);  // Force keyer to reinitialize with handkey mode
 
 		// Stuck keys detected - warn user and disable input mode
 		UI_DisplayReleasePaddle();

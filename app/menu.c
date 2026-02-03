@@ -894,12 +894,13 @@ void MENU_AcceptSetting(void)
 				if (!CW_CheckKeyerInputs(new_mode)) {
 					// Validation failed - keys stuck
 					gCwKeyInputCheckFailed = true;
+					gEeprom.CW_KEY_INPUT = CW_KEY_INPUT_HANDKEY; // Revert to safe default
 					gRequestDisplayScreen = DISPLAY_MENU;
 					return;  // Don't accept the new setting
 				}
 				gCwKeyInputCheckFailed = false;
 				gEeprom.CW_KEY_INPUT = new_mode;
-				CW_KeyerReconfigure();
+				CW_KeyerReconfigure(gTxVfo->Modulation == MODULATION_CW);
 			}
 			break;
 

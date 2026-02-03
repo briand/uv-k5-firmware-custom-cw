@@ -108,5 +108,10 @@ void SystickHandler(void)
 	DECREMENT(gVoxStopCountdown_10ms);
 #endif
 
+#ifdef ENABLE_CW_MODULATOR
+	// CW TX display holdoff timer
+	DECREMENT_AND_TRIGGER(gCW_TxDisplayHoldoff_10ms, gUpdateDisplay);
+#endif
+
 	DECREMENT(boot_counter_10ms);
 }

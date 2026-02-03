@@ -37,7 +37,7 @@ typedef enum POWER_OnDisplayMode_t POWER_OnDisplayMode_t;
 // Bit flags for CW key input configuration
 #define CW_KEY_FLAG_REVERSED      0x01  // 0=normal, 1=reversed
 #define CW_KEY_FLAG_PORT_RING     0x02  // 0=no port ring, 1=use port ring input
-#define CW_KEY_FLAG_BUTTONS       0x04  // 0=no buttons, 1=use button inputs
+#define CW_KEY_FLAG_SIDE1         0x04  // 0=not side1, 1=use side1 button (plus PTT)
 #define CW_KEY_FLAG_NO_KEYER      0x08  // 0=keyer enabled, 1=handkey only
 #define CW_KEY_FLAG_PORT_GROUND   0x10  // 0=no port ground, 1=use port ground
 #define CW_KEY_FLAG_ADC		  	  0x20  // 0=no ADC keyer, 1=use ADC (CEC cable) input
@@ -45,7 +45,7 @@ typedef enum POWER_OnDisplayMode_t POWER_OnDisplayMode_t;
 enum CW_KeyInputType_t {
 	CW_KEY_INPUT_HANDKEY          = 0x08,  // handkey only (disable keyer)
 	CW_KEY_INPUT_HANDKEY_PORT     = 0x18,  // handkey + port ground (no keyer)
-	CW_KEY_INPUT_BUTTONS_NORMAL   = 0x04,  // buttons
+	CW_KEY_INPUT_BUTTONS_NORMAL   = 0x04,  // buttons (PTT + SIDE1)
 	CW_KEY_INPUT_BUTTONS_REVERSED = 0x05,  // buttons + reversed
 	CW_KEY_INPUT_PORT_NORMAL      = 0x12,  // port ring + port ground
 	CW_KEY_INPUT_PORT_REVERSED    = 0x13,  // port ring + port ground + reversed

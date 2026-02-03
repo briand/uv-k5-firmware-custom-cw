@@ -725,11 +725,14 @@ void APP_EndTransmission(void)
 	gFlagEndTransmission = true;
 
 #ifdef ENABLE_CW_MODULATOR
-	// Clear CW state when ending transmission entirely
-	gCW_State = CW_INACTIVE;
-	gCW_SuspendCountdown_10ms = 0;
-	// Keep TX display visible for 1 second after TX ends
-	gCW_TxDisplayHoldoff_10ms = 100;
+	if(gCW_State != CW_INACTIVE)
+	{	
+		// Clear CW state when ending transmission entirely
+		gCW_State = CW_INACTIVE;
+		gCW_SuspendCountdown_10ms = 0;
+		// Keep TX display visible for 1 second after TX ends
+		gCW_TxDisplayHoldoff_10ms = 100;
+	}
 #endif
 
 	if (gMonitor) {
@@ -863,6 +866,8 @@ void APP_Update(void)
 						(gEeprom.CW_SIDETONE_LEVEL << BK4819_REG_70_SHIFT_TONE1_TUNING_GAIN));
 					// Set local AF sidetone freq in Hz
 					BK4819_SetScrambleFrequencyControlWord(gEeprom.CW_TONE_FREQUENCY * 10);
+					if(gEeprom.CW_OPER_MODE != CW_OPER_MODE_BREAK_IN)
+						gCW_TxDisplayHoldoff_10ms = 1000;  // do the decode display for CPO
 				break;
 				case CW_ACTION_CARRIER_OFF:
 					// Set TONE1 to 0 Hz - this works better than gain to disable sidetone
@@ -920,6 +925,12 @@ void APP_Update(void)
 				}
 			break;
 		}
+	} else if(gCW_State == CW_TRANSMITTING)
+	{
+		// this should basically never happen, but maybe if changing modulation while transmitting?
+		// UART_Send("!!! CW Auto-auto Suspend\r\n", 21);
+		RADIO_CW_Suspend();
+		gCW_SuspendCountdown_10ms = 0;
 	}
 
 #endif
@@ -1143,15 +1154,6 @@ static void CheckKeys(void)
 	}
 	else
 		gPttDebounceCounter = 0;
-
-#ifdef ENABLE_CW_MODULATOR
-	// Decrement TX display holdoff timer (runs every 10ms tick regardless of TX state)
-	if (gCW_TxDisplayHoldoff_10ms > 0)
-	{
-		if (--gCW_TxDisplayHoldoff_10ms == 0)
-			gUpdateDisplay = true;  // Trigger screen refresh to switch away from CW display
-	}
-#endif
 
 // --------------------- OTHER KEYS ----------------------------
 
@@ -1908,10 +1910,8 @@ static void ProcessKey(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 #endif
 	}
 #ifdef ENABLE_CW_MODULATOR
-	else if (Key == KEY_SIDE1 && gCW_Recording) {
-		// Block side button 1 during CW macro recording
-		if (!bKeyHeld && bKeyPressed)
-			gBeepToPlay = BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL;
+	else if (Key == KEY_SIDE1 && (gCW_KeyerUsingSD1 && (gCW_Recording || (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_SIDE1)))) {
+		// Block side button 1 if used by keyer during CW macro recording or CPO
 	}
 #endif
 	else if (Key != KEY_SIDE1 && Key != KEY_SIDE2 && gScreenToDisplay != DISPLAY_INVALID) {
@@ -2007,8 +2007,8 @@ Skip:
 		RADIO_SelectVfos();
 
 #ifdef ENABLE_CW_MODULATOR
-	if(gFlagReconfigureVfos && gTxVfo->Modulation==MODULATION_CW)
-		CW_KeyerReconfigure();
+	if(gFlagReconfigureVfos)
+		CW_KeyerReconfigure(gTxVfo->Modulation==MODULATION_CW);
 #endif
 
 #ifdef ENABLE_NOAA

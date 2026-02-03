@@ -851,8 +851,8 @@ void APP_Update(void)
 		else
 			action = CW_HandleState();
 		
-		// Don't transmit RF if we're recording a macro
-		if (gCW_Recording) {
+		// Don't transmit RF if we're recording a macro or in practice keyer mode
+		if (gCW_Recording || (gEeprom.CW_OPER_MODE != CW_OPER_MODE_BREAK_IN)) {
 			switch(action)
 			{
 				case CW_ACTION_CARRIER_ON:

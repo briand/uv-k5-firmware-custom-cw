@@ -135,7 +135,8 @@ const t_menu_item MenuList[] =
 	{"CWmsg1", VOICE_ID_INVALID,                       MENU_CW_MSG1       },
 	{"CWmsg2", VOICE_ID_INVALID,                       MENU_CW_MSG2       },
 	{"CWmsg3", VOICE_ID_INVALID,                       MENU_CW_MSG3       },
-	{"CWmsg4", VOICE_ID_INVALID,                       MENU_CW_MSG4       },
+	{"CWmsg4", VOICE_ID_INVALID,                       MENU_CW_MSG4       },	
+	{"CWcpo", VOICE_ID_INVALID,                        MENU_CW_CPO        },
 #endif
 
 	// hidden menu items from here on
@@ -915,6 +916,10 @@ void UI_DisplayMenu(void)
 
 		case MENU_CW_KEY_INPUT:
 			strcpy(String, gSubMenu_CW_KEY_INPUT[gSubMenuSelection]);
+			break;
+
+		case MENU_CW_CPO:
+			strcpy(String, gSubMenu_OFF_ON[gSubMenuSelection]);
 			break;
 
 		case MENU_CW_MSG1:

@@ -459,11 +459,6 @@ void CW_StopRecording(void)
 	gCW_RecordNewChar = false;
 }
 
-bool CW_IsRecording(void)
-{
-	return gCW_Recording;
-}
-
 void CW_AddToTxDisplay(char ch, bool hasSpace)
 {
 #if CW_ENCODER_DEBUG

@@ -89,6 +89,9 @@ static bool s_play_space_pending = false;  // indicates next char should be show
 // Reconfigure requested (apply at idle or after gap)
 static volatile bool s_cfg_dirty = true;
 
+// Keyer enabled flag
+static volatile bool s_enable_keyer = false;
+
 
 void CW_UpdateWPM()
 {
@@ -109,6 +112,21 @@ void CW_UpdateWPM()
              wpm, s_dit_count, s_dah_count, s_gap_count);
     UART_Send(buf, strlen(buf));
 #endif
+}
+
+// Called when changing to non-CW mode
+void CW_KeyerDeinit()
+{
+    // Was using port ground? Need to put it back
+    if(gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_PORT_GROUND)
+        CW_ConfigurePortGround(false);
+
+    // Was using port ring? Need to put it back
+    if(gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_PORT_RING)
+        CW_ConfigurePortRing(false);
+
+    gCW_KeyerUsingSD1 = false;
+    s_enable_keyer = false;
 }
 
 // Initialize keyer from gEeprom settings
@@ -134,6 +152,8 @@ static void CW_KeyerInit()
     CW_ConfigurePortGround(uses_port_ground);
     CW_ConfigurePortRing(uses_port_ring);
 
+    gCW_KeyerUsingSD1 = gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_SIDE1;
+
     s_last_count         = (uint16_t)TIMERBASE0_LOW_CNT;
     s_active_is_dit    = false;
     CW_HW_ResetKeySamples();
@@ -143,10 +163,21 @@ static void CW_KeyerInit()
 #if CW_KEYER_DEBUG
     UART_Send("keyer init done\r\n", 17);
 #endif
+    s_enable_keyer = true;
 }
 
-void CW_KeyerReconfigure(void)
+void CW_KeyerReconfigure(bool enable)
 {
+    if(!enable) {
+        if(!s_enable_keyer) 
+            return;  // already disabled
+
+        // Disable keyer immediately and put ports back to normal if needed
+        s_KeyerFSMState = CWK_STATE_IDLE;
+        CW_KeyerDeinit();
+        s_cfg_dirty = false;
+        return;
+    }
     s_cfg_dirty = true;
 #if CW_KEYER_DEBUG
     UART_Send("keyer marked for reconfig\r\n", 27);
@@ -382,7 +413,7 @@ bool CW_CheckKeyerInputs(uint8_t new_mode)
     int total_checks = 0;
 #endif
     
-    for (int i = 0; i < 20; i++) {  // Check up to 20 times = 200ms max
+    for (int i = 0; i < 20; i++) {  // Check up to 20 times = 20ms max
         bool dit = false, dah = false;
         CW_ReadKeysForMode(new_mode, &dit, &dah);
 #if CW_KEYER_DEBUG
@@ -406,7 +437,7 @@ bool CW_CheckKeyerInputs(uint8_t new_mode)
             stuck_count = 0;  // Reset if keys released
         }
         
-        SYSTEM_DelayMs(10);
+        SYSTEM_DelayMs(1);
     }
     
 #if CW_KEYER_DEBUG

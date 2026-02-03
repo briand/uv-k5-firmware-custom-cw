@@ -419,6 +419,11 @@ int MENU_GetLimits(uint8_t menu_id, int32_t *pMin, int32_t *pMax)
 			*pMin = 0;
 			*pMax = 2;  // show, record, play
 			break;
+
+		case MENU_CW_CPO:
+			*pMin = 0;  // off
+			*pMax = 1;  // on
+			break;
 #endif
 		default:
 			return -1;
@@ -879,6 +884,10 @@ void MENU_AcceptSetting(void)
 			gEeprom.CW_KEYER_MODE = gSubMenuSelection;
 			break;
 
+		case MENU_CW_CPO:
+			gEeprom.CW_OPER_MODE = gSubMenuSelection;  // 0=off (BREAK_IN), 1=on (CPO_RX)
+			break;
+
 		case MENU_CW_KEY_INPUT:
 			// Map menu selection (0-7) to bit-mapped value
 			{
@@ -887,12 +896,13 @@ void MENU_AcceptSetting(void)
 				if (!CW_CheckKeyerInputs(new_mode)) {
 					// Validation failed - keys stuck
 					gCwKeyInputCheckFailed = true;
+					gEeprom.CW_KEY_INPUT = CW_KEY_INPUT_HANDKEY; // Revert to safe default
 					gRequestDisplayScreen = DISPLAY_MENU;
 					return;  // Don't accept the new setting
 				}
 				gCwKeyInputCheckFailed = false;
 				gEeprom.CW_KEY_INPUT = new_mode;
-				CW_KeyerReconfigure();
+				CW_KeyerReconfigure(gTxVfo->Modulation == MODULATION_CW);
 			}
 			break;
 
@@ -1315,6 +1325,10 @@ void MENU_ShowCurrentSetting(void)
 		case MENU_CW_KEYER_MODE:
 			gSubMenuSelection = gEeprom.CW_KEYER_MODE;
 			break;
+		case MENU_CW_CPO:
+			gSubMenuSelection = (gEeprom.CW_OPER_MODE > 0) ? 1 : 0;  // Show as off(0) or on(1)
+			break;
+
 		case MENU_CW_KEY_INPUT:
 		// Map bit-mapped value back to menu selection (0-7) by searching array
 		{

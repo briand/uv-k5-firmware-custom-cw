@@ -12,7 +12,7 @@
 #define CW_ENCODER_DEBUG 0
 
 // Macro save/load debug logging - set to 1 to enable
-#define CW_MACRO_DEBUG 1
+#define CW_MACRO_DEBUG 0
 
 // Morse code lookup table
 // Pattern: LSB first, 0=dit, 1=dah
@@ -79,6 +79,12 @@ uint8_t gCW_RecordMacroIndex = 0;
 uint8_t gCW_RecordBuffer[CW_MACRO_MAX_LEN];
 uint8_t gCW_RecordLength = 0;
 bool gCW_RecordNewChar = false;
+
+// Playback state (shared with cwkeyer.c)
+bool gCW_PlaybackActive = false;
+bool gCW_PlaybackRepeat = false;
+uint8_t gCW_PlaybackMacroIndex = 0;
+uint16_t gCW_MessageRepeatCountdown_500ms = 0;
 // TX display buffer - shows characters being transmitted
 char gCW_TX_Display[CW_TX_DISPLAY_SIZE];
 uint8_t gCW_TX_DisplayIndex = 0;

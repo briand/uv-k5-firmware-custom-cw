@@ -66,8 +66,6 @@ static bool           s_pending_alternate = false; // alternate element queued
 static bool           s_last_handkey_ptt = false; // last PTT state for handkey mode
 
 // Macro playback state
-static bool s_playback_active = false;
-static uint8_t s_playback_macro_index = 0;
 static char s_playback_buf[CW_MACRO_MAX_LEN * 2 + 1]; // decoded with spaces inserted
 static uint16_t s_playback_buf_len = 0; // strlen of the buffer
 static uint16_t s_playback_pos = 0; // index into playback buffer
@@ -185,30 +183,34 @@ void CW_KeyerReconfigure(bool enable)
 }
 
 // --- Macro playback API implementation ---
-void CW_StartMacroPlayback(uint8_t macroIndex)
+void CW_StartMacroPlayback(uint8_t macroIndex, bool repeat)
 {	
     // Do nothing if recording or playback already in progress
-    if (gCW_Recording || CW_IsMacroPlaybackActive()) return;
+    if (gCW_Recording || gCW_PlaybackActive) return;
 
     // Load the macro into a local buffer (decoded with spaces)
     memset(s_playback_buf, 0, sizeof(s_playback_buf));
     CW_LoadMacro(macroIndex, s_playback_buf, sizeof(s_playback_buf));
     s_playback_buf_len = (uint16_t)strlen(s_playback_buf);
     s_playback_pos = 0;
-    s_playback_macro_index = macroIndex;
+    gCW_PlaybackMacroIndex = macroIndex;
     s_play_elem_index = 0;
     s_play_char_len = 0;
     s_play_char_pattern = 0;
+
+    // Store repeat flag
+    gCW_PlaybackRepeat = repeat;
+    gCW_MessageRepeatCountdown_500ms = 0;  // Clear any pending countdown
 
     // Clear TX display and prime the playback FSM to start immediately
     CW_ClearTxDisplay();
     s_play_space_pending = false;
     s_pb_state = PB_STATE_INTER_CHAR_GAP;
     s_elem_start_count = (uint16_t)TIMERBASE0_LOW_CNT;
-    s_playback_active = (s_playback_buf_len > 0);
+    gCW_PlaybackActive = (s_playback_buf_len > 0);
 
 #if CW_KEYER_DEBUG
-    if (s_playback_active) {
+    if (gCW_PlaybackActive) {
         char buf[80];
         sprintf_(buf, "Playback started: idx=%u buf='%s'\r\n", macroIndex, s_playback_buf);
         UART_Send(buf, strlen(buf));
@@ -216,15 +218,12 @@ void CW_StartMacroPlayback(uint8_t macroIndex)
 #endif
 }
 
-bool CW_IsMacroPlaybackActive(void)
+// Stop playback immediately (user interrupted)
+void CW_StopPlayback(void)
 {
-    return s_playback_active;
-}
-
-// Stop playback immediately
-static void CW_StopPlayback(void)
-{
-    s_playback_active = false;
+    gCW_PlaybackActive = false;
+    gCW_PlaybackRepeat = false;       // Cancel any pending repeat
+    gCW_MessageRepeatCountdown_500ms = 0;
     s_pb_state = PB_STATE_IDLE;
     s_playback_buf_len = 0;
     s_playback_pos = 0;
@@ -233,7 +232,7 @@ static void CW_StopPlayback(void)
 // Playback handler - returns CW_Action_t similar to CW_HandleState
 CW_Action_t CW_PlaybackHandleState(void)
 {
-    if (!s_playback_active) return CW_ACTION_NONE;
+    if (!gCW_PlaybackActive) return CW_ACTION_NONE;
 
     const uint16_t cur_count = (uint16_t)TIMERBASE0_LOW_CNT;
     CW_Input in = {0};
@@ -290,8 +289,16 @@ CW_Action_t CW_PlaybackHandleState(void)
         }
         // Move to next character (if any)
         if (s_playback_pos >= s_playback_buf_len) {
-            // Done
-            CW_StopPlayback();
+            // Done with current pass
+            if (gCW_PlaybackRepeat && gEeprom.CW_MESSAGE_REPEAT_DELAY > 0) {
+                // Start repeat countdown (value is in 500ms units)
+                gCW_MessageRepeatCountdown_500ms = gEeprom.CW_MESSAGE_REPEAT_DELAY * 2;
+                gCW_PlaybackActive = false;  // Pause playback while counting down
+                s_pb_state = PB_STATE_IDLE;
+            } else {
+                // No repeat or delay is 0 - just stop
+                CW_StopPlayback();
+            }
             return CW_ACTION_NONE;
         }
         char ch = s_playback_buf[s_playback_pos++];
@@ -353,7 +360,7 @@ void CW_PlaybackIndicatorDeadline(void)
     static uint8_t s_tick_count_10ms = 0;
     const uint8_t TARGET_TICKS = 25; /* ~250 ms */
 
-    if (CW_IsMacroPlaybackActive()) {
+    if (gCW_PlaybackActive || gCW_MessageRepeatCountdown_500ms > 0) {
         if (++s_tick_count_10ms >= TARGET_TICKS) {
             s_tick_count_10ms = 0;
             gCW_PlayIndicatorOn = !gCW_PlayIndicatorOn;

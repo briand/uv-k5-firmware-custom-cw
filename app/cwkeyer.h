@@ -29,11 +29,12 @@ void CW_KeyerReconfigure(bool enable);
 bool CW_CheckKeyerInputs(uint8_t new_mode);
 
 // Macro playback API
-// Start playback of macro (0 or 1). Sets playback active flag and loads macro.
-void CW_StartMacroPlayback(uint8_t macroIndex);
+// Start playback of macro (0-3). Sets playback active flag and loads macro.
+// If repeat is true, playback will restart after CW_MESSAGE_REPEAT_DELAY expires.
+void CW_StartMacroPlayback(uint8_t macroIndex, bool repeat);
 
-// Query whether playback is active
-bool CW_IsMacroPlaybackActive(void);
+// Stop playback and cancel any pending repeat
+void CW_StopPlayback(void);
 
 // Periodic handler for playback FSM - returns CW_Action_t (carrier on/off/hold)
 CW_Action_t CW_PlaybackHandleState(void);

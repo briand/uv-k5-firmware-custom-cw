@@ -132,6 +132,10 @@ enum ACTION_OPT_t {
 	ACTION_OPT_PLAY_CWMSG2,
 	ACTION_OPT_PLAY_CWMSG3,
 	ACTION_OPT_PLAY_CWMSG4,
+	ACTION_OPT_REPEAT_CWMSG1,
+	ACTION_OPT_REPEAT_CWMSG2,
+	ACTION_OPT_REPEAT_CWMSG3,
+	ACTION_OPT_REPEAT_CWMSG4,
 #endif
 	ACTION_OPT_SPECTRUM,
 	ACTION_OPT_LEN
@@ -302,6 +306,7 @@ typedef struct {
 	uint8_t               CW_KEY_WPM;			// actual WPM
 	CW_KeyInputType_t     CW_KEY_INPUT;			// Combined button/port input selection
 	CW_OperModeType_t     CW_OPER_MODE;			// CW operating mode: break-in, CPO+RX, CPO+mute
+	uint8_t               CW_MESSAGE_REPEAT_DELAY;  // Repeat delay in seconds
 #endif
 
 } EEPROM_Config_t;

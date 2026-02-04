@@ -229,7 +229,7 @@ void SETTINGS_InitEEPROM(void)
 	}
 
 #ifdef ENABLE_CW_MODULATOR
-	// 0F20..0F22
+	// 0F20..0F23
 	EEPROM_ReadBuffer(0x0F20, Data, 4);
 	gEeprom.CW_TONE_FREQUENCY = Data[0] == 0xff ? 60 : 45 + (Data[0] & 0xf) * 5;  // Same as gMenuSelection: 50 Hz steps from 450, default 600
 	gEeprom.CW_SIDETONE_LEVEL = Data[0] == 0xff ? 4*21 : ((Data[0] >> 4) & 0x07) * 21;  // levels 0-6 scaled by 21 (max 6*21=126), default 4*21=105
@@ -237,6 +237,8 @@ void SETTINGS_InitEEPROM(void)
 	gEeprom.CW_KEY_WPM        = ((Data[1] & 0x3f) < 31 && (Data[1] & 0x3f) >= 10) ? Data[1] & 0x3f : 18;  // bits 0-5, valid range 10-30, default 18 WPM
 	gEeprom.CW_KEY_INPUT      = ((Data[2] & 0x1F) <= 0x21) ? (Data[2] & 0x1F) : CW_KEY_INPUT_HANDKEY;  // bits 0-4, range 0-0x21, default HANDKEY
 	gEeprom.CW_OPER_MODE	  = ((Data[2] >> 5) & 0x03);  // bits 5-6: 0=break-in, 1=CPO+RX, 2=CPO+mute, default 0
+	// Data[3]: high bit = invalid, bits 0-6 = repeat delay (seconds)
+	gEeprom.CW_MESSAGE_REPEAT_DELAY = (Data[3] & 0x80) ? 4 : (Data[3] & 0x7F);  // default 4s
 #endif
 
 	// 0F40..0F47
@@ -589,6 +591,8 @@ void SETTINGS_SaveSettings(void)
 	}
 	State[1] = (gEeprom.CW_KEYER_MODE << 7) | (gEeprom.CW_KEY_WPM & 0x3F);  // mode in bit 7 (0=A, 1=B), WPM in bits 0-5
 	State[2] = (gEeprom.CW_KEY_INPUT & 0x1F) | ((gEeprom.CW_OPER_MODE & 0x03) << 5);  // key input in bits 0-4, oper mode in bits 5-6
+	// State[3]: store menu value (delay/2) in bits 0-6, clear high bit to mark valid
+	State[3] = (gEeprom.CW_MESSAGE_REPEAT_DELAY) & 0x7F;
 	EEPROM_WriteBuffer(0x0F20, State);
 
 	memset(State, 0xFF, sizeof(State));

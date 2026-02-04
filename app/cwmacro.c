@@ -79,6 +79,12 @@ uint8_t gCW_RecordMacroIndex = 0;
 uint8_t gCW_RecordBuffer[CW_MACRO_MAX_LEN];
 uint8_t gCW_RecordLength = 0;
 bool gCW_RecordNewChar = false;
+
+// Playback state (shared with cwkeyer.c)
+bool gCW_PlaybackActive = false;
+bool gCW_PlaybackRepeat = false;
+uint8_t gCW_PlaybackMacroIndex = 0;
+uint16_t gCW_MessageRepeatCountdown_500ms = 0;
 // TX display buffer - shows characters being transmitted
 char gCW_TX_Display[CW_TX_DISPLAY_SIZE];
 uint8_t gCW_TX_DisplayIndex = 0;

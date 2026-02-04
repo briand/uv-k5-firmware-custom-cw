@@ -135,7 +135,8 @@ const t_menu_item MenuList[] =
 	{"CWmsg1", VOICE_ID_INVALID,                       MENU_CW_MSG1       },
 	{"CWmsg2", VOICE_ID_INVALID,                       MENU_CW_MSG2       },
 	{"CWmsg3", VOICE_ID_INVALID,                       MENU_CW_MSG3       },
-	{"CWmsg4", VOICE_ID_INVALID,                       MENU_CW_MSG4       },	
+	{"CWmsg4", VOICE_ID_INVALID,                       MENU_CW_MSG4       },
+	{"CWmrpt", VOICE_ID_INVALID,                       MENU_CW_MSG_REPEAT },
 	{"CWcpo", VOICE_ID_INVALID,                        MENU_CW_CPO        },
 #endif
 
@@ -386,6 +387,10 @@ const t_sidefunction gSubMenu_SIDEFUNCTIONS[] =
 	{"PLAY\nCW MSG2", ACTION_OPT_PLAY_CWMSG2},
 	{"PLAY\nCW MSG3", ACTION_OPT_PLAY_CWMSG3},
 	{"PLAY\nCW MSG4", ACTION_OPT_PLAY_CWMSG4},
+	{"REPEAT\nCW MSG1", ACTION_OPT_REPEAT_CWMSG1},
+	{"REPEAT\nCW MSG2", ACTION_OPT_REPEAT_CWMSG2},
+	{"REPEAT\nCW MSG3", ACTION_OPT_REPEAT_CWMSG3},
+	{"REPEAT\nCW MSG4", ACTION_OPT_REPEAT_CWMSG4},
 #endif
 #ifdef ENABLE_SPECTRUM
 	{"SPECTRUM",         ACTION_OPT_SPECTRUM}
@@ -416,7 +421,8 @@ const char* gSubMenu_CW_KEY_INPUT[] =
 const char* gSubMenu_CW_MSG[] =
 {
 	"Record\nnew?",
-	"Play"
+	"Play",
+	"Repeat"
 };
 
 #endif
@@ -920,6 +926,10 @@ void UI_DisplayMenu(void)
 
 		case MENU_CW_CPO:
 			strcpy(String, gSubMenu_OFF_ON[gSubMenuSelection]);
+			break;
+
+		case MENU_CW_MSG_REPEAT:
+			sprintf(String, "%d s", gSubMenuSelection);
 			break;
 
 		case MENU_CW_MSG1:

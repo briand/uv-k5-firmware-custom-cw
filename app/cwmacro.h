@@ -72,6 +72,18 @@ extern uint8_t gCW_RecordBuffer[CW_MACRO_MAX_LEN];  // Encoded characters
 extern uint8_t gCW_RecordLength;  // Current length
 extern bool gCW_RecordNewChar;  // Flag: new character ready for display update
 
+// Playback state (shared with cwkeyer.c)
+extern bool gCW_PlaybackActive;
+extern bool gCW_PlaybackRepeat;
+extern uint8_t gCW_PlaybackMacroIndex;
+extern uint16_t gCW_MessageRepeatCountdown_500ms;
+
+// Playback state (moved from cwkeyer.c static)
+extern bool gCW_PlaybackActive;         // true while macro playback is in progress
+extern bool gCW_PlaybackRepeat;         // true if playback should repeat after completion
+extern uint8_t gCW_PlaybackMacroIndex;  // macro being played (0-3)
+extern uint16_t gCW_MessageRepeatCountdown_500ms;  // countdown timer for repeat delay
+
 // Start recording a macro
 void CW_StartRecording(uint8_t macroIndex);
 

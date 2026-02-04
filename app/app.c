@@ -845,11 +845,10 @@ void APP_Update(void)
 
 #ifdef ENABLE_CW_MODULATOR
 
-// 	static uint32_t local_counter = 0;
 	if (gTxVfo->Modulation == MODULATION_CW) 
 	{
 		CW_Action_t action;
-		if (CW_IsMacroPlaybackActive())
+		if (gCW_PlaybackActive)
 			action = CW_PlaybackHandleState();
 		else
 			action = CW_HandleState();
@@ -867,7 +866,7 @@ void APP_Update(void)
 					// Set local AF sidetone freq in Hz
 					BK4819_SetScrambleFrequencyControlWord(gEeprom.CW_TONE_FREQUENCY * 10);
 					if(gEeprom.CW_OPER_MODE != CW_OPER_MODE_BREAK_IN)
-						gCW_TxDisplayHoldoff_10ms = 1000;  // do the decode display for CPO
+						gCW_TxDisplayHoldoff_10ms = 1000;  // show decode display for CPO, hold for 10 seconds
 				break;
 				case CW_ACTION_CARRIER_OFF:
 					// Set TONE1 to 0 Hz - this works better than gain to disable sidetone
@@ -886,6 +885,7 @@ void APP_Update(void)
 		{
 			case CW_ACTION_CARRIER_ON:
 				gTxTimerCountdown_500ms = 0;
+				gCW_TxDisplayHoldoff_10ms = 100;
 				gPttIsPressed = true;
 
 				if(gCW_State == CW_INACTIVE)
@@ -1457,6 +1457,7 @@ void APP_TimeSlice500ms(void)
 		// Don't timeout if recording CW macro
 		if (gCW_Recording) {
 			gMenuCountdown = menu_timeout_500ms;  // Keep resetting the timer
+			gBacklightCountdown_500ms = 2; // keep backlight on
 		} else
 #endif
 		if (--gMenuCountdown == 0)
@@ -1488,6 +1489,16 @@ void APP_TimeSlice500ms(void)
 	) {
 		BACKLIGHT_TurnOff();
 	}
+
+#ifdef ENABLE_CW_MODULATOR
+	// CW message repeat countdown - when it expires, restart playback
+	if (gCW_MessageRepeatCountdown_500ms > 0) {
+		if (--gCW_MessageRepeatCountdown_500ms == 0 && gCW_PlaybackRepeat) {
+			// Restart playback of the same macro with repeat enabled
+			CW_StartMacroPlayback(gCW_PlaybackMacroIndex, true);
+		}
+	}
+#endif
 
 	if (gReducedService)
 	{
@@ -1839,7 +1850,15 @@ static void ProcessKey(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 		goto Skip;
 	}
 
-	if (gCurrentFunction == FUNCTION_TRANSMIT) {
+#ifdef ENABLE_CW_MODULATOR
+	// Allow any key to stop CW macro playback and cancel repeat
+	if ((gCW_PlaybackActive || gCW_PlaybackRepeat) && bKeyPressed && !bKeyHeld) {
+		CW_StopPlayback();
+		gUpdateDisplay = true;
+	}
+#endif
+
+if (gCurrentFunction == FUNCTION_TRANSMIT) {
 #if defined(ENABLE_ALARM) || defined(ENABLE_TX1750)
 		if (gAlarmState == ALARM_STATE_OFF)
 #endif
@@ -1851,9 +1870,10 @@ static void ProcessKey(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 				goto Skip;
 			}
 #ifdef ENABLE_CW_MODULATOR
+        if (gCurrentVfo->Modulation == MODULATION_CW) {
             // Disable DTMF/tone transmission when in CW mode
-            if (gCurrentVfo->Modulation == MODULATION_CW)
-                goto Skip;
+            goto Skip;
+        }
 #endif
 			if (Key == KEY_SIDE2) { // transmit 1750Hz tone
 				Code = 0xFE;

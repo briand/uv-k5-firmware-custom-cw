@@ -187,7 +187,7 @@ void DrawCWDecodeBar(void)
 	UI_PrintStringSmallNormal(String, 10, 0, line);
 
 	// Draw glyph after text so it can't be clobbered (drawn independently of DecodeBar)
-	if (CW_IsMacroPlaybackActive() && (center_line == CENTER_LINE_NONE || center_line == CENTER_LINE_CW_DECODE)) {
+	if (gCW_PlaybackActive && (center_line == CENTER_LINE_NONE || center_line == CENTER_LINE_CW_DECODE)) {
 		if (gCW_PlayIndicatorOn) {
 			memcpy(p_line + 0, BITMAP_Play, sizeof(BITMAP_Play));
 		} else {
@@ -762,7 +762,7 @@ void UI_DisplayMain(void)
 
 #ifdef ENABLE_CW_MODULATOR
 		if ((gCW_TxDisplayHoldoff_10ms > 0) && gCW_TX_Display[0] != 0)  // gCurrentFunction == FUNCTION_TRANSMIT || gCurrentVfo->Modulation == MODULATION_CW &&
-		{	// show CW characters being transmitted (persists 1 sec after TX ends)
+		{	// show decoded CW characters
 			center_line = CENTER_LINE_CW_DECODE;
 			DrawCWDecodeBar();
 		}

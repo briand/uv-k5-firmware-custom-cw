@@ -417,7 +417,12 @@ int MENU_GetLimits(uint8_t menu_id, int32_t *pMin, int32_t *pMax)
 		case MENU_CW_MSG3:
 		case MENU_CW_MSG4:
 			*pMin = 0;
-			*pMax = 2;  // show, record, play
+			*pMax = 3;  // show, record, play, repeat
+			break;
+
+		case MENU_CW_MSG_REPEAT:
+			*pMin = 0;
+			*pMax = 127;  // 0-127 menu value (stored as seconds)
 			break;
 
 		case MENU_CW_CPO:
@@ -869,7 +874,7 @@ void MENU_AcceptSetting(void)
 			// 50 hz steps from 450 Hz to 800 Hz - stored as 45 to 80
 			gEeprom.CW_TONE_FREQUENCY = 45 + gSubMenuSelection * 5;
 			// Set the "BFO" - Frequency is in deciHz, so no scaling needed
-			BK4819_SetFrequency(gRxVfo->pRX->Frequency - gEeprom.CW_TONE_FREQUENCY);			
+			gRequestSaveChannel       = 1;		
 			// char buf[64];
 			// sprintf_(buf, "in menu RX freq: %d Hz, offset: %d Hz\r\n", gRxVfo->pRX->Frequency * 10, (10 * gEeprom.CW_TONE_FREQUENCY));
 			// UART_Send(buf, strlen(buf));
@@ -925,8 +930,8 @@ void MENU_AcceptSetting(void)
 				CW_StartRecording(macroIdx);
 				edit_index = 0;  // Use edit_index >= 0 to signal we're in recording mode
 			}
-			// If gSubMenuSelection == 2, user selected "play"
-			else if (gSubMenuSelection == 2) {
+			// If gSubMenuSelection == 2, user selected "play", 3 is "repeat"
+			else if (gSubMenuSelection == 2 || gSubMenuSelection == 3) {
 				// Check if we're in CW mode (playback requires CW mode active)
 				if (gTxVfo->Modulation != MODULATION_CW) {
 					gCwNoKeyerError = true;
@@ -941,13 +946,17 @@ void MENU_AcceptSetting(void)
 					return; // Don't attempt playback
 				}
 				gCwNoKeyerError = false;
-				CW_StartMacroPlayback(macroIdx);
+				CW_StartMacroPlayback(macroIdx, gSubMenuSelection == 3);
 
 				// This is the magic incantation so it won't re-open the submenu after accepting
 				gRequestDisplayScreen = DISPLAY_MAIN;
 				gPttWasReleased = true;
 				return;
 			}
+			break;
+
+		case MENU_CW_MSG_REPEAT:
+			gEeprom.CW_MESSAGE_REPEAT_DELAY = gSubMenuSelection;
 			break;
 #endif
 
@@ -1348,6 +1357,10 @@ void MENU_ShowCurrentSetting(void)
 		case MENU_CW_MSG3:
 		case MENU_CW_MSG4:
 			gSubMenuSelection = 0;  // Default to showing current macro
+			break;
+
+		case MENU_CW_MSG_REPEAT:
+			gSubMenuSelection = gEeprom.CW_MESSAGE_REPEAT_DELAY;
 			break;
 #endif
 

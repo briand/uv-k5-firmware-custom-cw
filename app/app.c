@@ -1105,7 +1105,12 @@ static void CheckKeys(void)
 // -------------------- PTT ------------------------
 	if (gPttIsPressed)
 	{
-		if (GPIO_CheckBit(&GPIOC->DATA, GPIOC_PIN_PTT) || SerialConfigInProgress())
+		if (
+#ifdef ENABLE_CW_MODULATOR
+		gCW_KeyerUsesPTT ||
+#endif		
+		(GPIO_CheckBit(&GPIOC->DATA, GPIOC_PIN_PTT) || SerialConfigInProgress()))
+
 		{	// PTT released or serial comms config in progress
 
 #ifdef ENABLE_CW_MODULATOR
@@ -1137,13 +1142,18 @@ static void CheckKeys(void)
 			gPttDebounceCounter = 0;
 		}
 	}
-	else if (!GPIO_CheckBit(&GPIOC->DATA, GPIOC_PIN_PTT) && !SerialConfigInProgress())
+	else if (
+#ifdef ENABLE_CW_MODULATOR
+		gCW_KeyerUsesPTT ||
+#endif		
+		(!GPIO_CheckBit(&GPIOC->DATA, GPIOC_PIN_PTT) && !SerialConfigInProgress()))
 	{   // PTT pressed
-	#ifdef ENABLE_CW_MODULATOR
+
+#ifdef ENABLE_CW_MODULATOR
 		if (gTxVfo->Modulation == MODULATION_CW) {
 			gPttDebounceCounter = 0; // for CW we handle PTT in the keyer, don't allow ProcessKey to see it
 		}
-	#endif
+#endif
 		if (++gPttDebounceCounter >= 3)     // 30ms
 		{   // start transmitting
 			boot_counter_10ms   = 0;

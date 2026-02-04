@@ -415,7 +415,9 @@ const char* gSubMenu_CW_KEY_INPUT[] =
 	"PTT+tip\ndah\nring\ndit",
 	"PTT+tip\ndit\nring\ndah",
 	"PTT+tip\ndah\nSD1+rng\ndit",
-	"PTT+tip\ndit\nSD1+rng\ndah"
+	"PTT+tip\ndit\nSD1+rng\ndah",
+	"CEC\nCable",
+	"CEC\nCable\rReversed"
 };
 
 const char* gSubMenu_CW_MSG[] =

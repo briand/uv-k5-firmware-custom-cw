@@ -459,7 +459,11 @@ void BOARD_ADC_Init(void)
 	ADC_Config_t Config;
 
 	Config.CLK_SEL            = SYSCON_CLK_SEL_W_SARADC_SMPL_VALUE_DIV2;
-	Config.CH_SEL             = ADC_CH4 | ADC_CH9;
+	Config.CH_SEL             = ADC_CH4 | ADC_CH9
+	#ifdef ENABLE_CW_MODULATOR
+		| ADC_CH3
+	#endif
+	;
 	Config.AVG                = SARADC_CFG_AVG_VALUE_8_SAMPLE;
 	Config.CONT               = SARADC_CFG_CONT_VALUE_SINGLE;
 	Config.MEM_MODE           = SARADC_CFG_MEM_MODE_VALUE_CHANNEL;

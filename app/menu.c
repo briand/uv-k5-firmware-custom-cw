@@ -53,7 +53,7 @@
 
 #ifdef ENABLE_CW_MODULATOR
 	// CW key input menu selection (0-7) to bit-mapped value lookup
-	static const uint8_t CW_KEY_INPUT_menu_to_bitmap[8] = {
+	static const uint8_t CW_KEY_INPUT_menu_to_bitmap[10] = {
 		0x08, // 0: HANDKEY
 		0x18, // 1: HANDKEY_PORT
 		0x04, // 2: BUTTONS_NORMAL
@@ -61,7 +61,9 @@
 		0x12, // 4: PORT_NORMAL
 		0x13, // 5: PORT_REVERSED
 		0x16, // 6: BOTH_NORMAL
-		0x17  // 7: BOTH_REVERSED
+		0x17, // 7: BOTH_REVERSED
+		0x20, // 8: (CEC) CW_KEY_INPUT_ADC
+		0x21  // 9: (CEC) CW_KEY_INPUT_ADC_REVERSED
 	};
 #endif
 
@@ -409,7 +411,7 @@ int MENU_GetLimits(uint8_t menu_id, int32_t *pMin, int32_t *pMax)
 
 		case MENU_CW_KEY_INPUT:
 			*pMin = 0;
-			*pMax = 7;
+			*pMax = 9;
 			break;
 
 		case MENU_CW_MSG1:

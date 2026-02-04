@@ -1,4 +1,20 @@
-// CW Macro system implementation
+ /* Copyright 2026 NR7Y
+ * https://github.com/briand
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *     Unless required by applicable law or agreed to in writing, software
+ *     distributed under the License is distributed on an "AS IS" BASIS,
+ *     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *     See the License for the specific language governing permissions and
+ *     limitations under the License.
+ */
+
+ // CW Macro system implementation
 
 #include "app/cwmacro.h"
 #include "driver/eeprom.h"
@@ -12,7 +28,7 @@
 #define CW_ENCODER_DEBUG 0
 
 // Macro save/load debug logging - set to 1 to enable
-#define CW_MACRO_DEBUG 0
+#define CW_MACRO_DEBUG 1
 
 // Morse code lookup table
 // Pattern: LSB first, 0=dit, 1=dah
@@ -80,20 +96,13 @@ uint8_t gCW_RecordBuffer[CW_MACRO_MAX_LEN];
 uint8_t gCW_RecordLength = 0;
 bool gCW_RecordNewChar = false;
 
-// Playback state (shared with cwkeyer.c)
-bool gCW_PlaybackActive = false;
-bool gCW_PlaybackRepeat = false;
-uint8_t gCW_PlaybackMacroIndex = 0;
-uint16_t gCW_MessageRepeatCountdown_500ms = 0;
 // TX display buffer - shows characters being transmitted
 char gCW_TX_Display[CW_TX_DISPLAY_SIZE];
 uint8_t gCW_TX_DisplayIndex = 0;
 bool gCW_TX_DisplayUpdated = false;
 static const uint16_t MACRO_ADDRS[CW_MACRO_COUNT] = {
 	CW_MACRO1_EEPROM_ADDR,
-	CW_MACRO2_EEPROM_ADDR,
-	CW_MACRO3_EEPROM_ADDR,
-	CW_MACRO4_EEPROM_ADDR
+	CW_MACRO2_EEPROM_ADDR
 };
 
 bool CW_ValidateChar(char ch)

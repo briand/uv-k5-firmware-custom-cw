@@ -12,7 +12,7 @@
 #define CW_ENCODER_DEBUG 0
 
 // Macro save/load debug logging - set to 1 to enable
-#define CW_MACRO_DEBUG 1
+#define CW_MACRO_DEBUG 0
 
 // Morse code lookup table
 // Pattern: LSB first, 0=dit, 1=dah

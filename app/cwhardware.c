@@ -30,6 +30,10 @@
 #include "driver/systick.h"
 #include "driver/i2c.h"
 #include "driver/uart.h"
+#include "driver/adc.h"
+#include "bsp/dp32g030/saradc.h"
+#include "driver/timer.h"
+#include "external/printf/printf.h"
 
 // Local state for last sampled paddles (edge detection)
 static bool s_last_dit = false;
@@ -104,23 +108,66 @@ static void CW_ReadPtt(bool *ptt_out)
     *ptt_out = CW_ReadGpioDeglitched(&GPIOC->DATA, GPIOC_PIN_PTT, false);
 }
 
+// static uint16_t ReadCH3()
+// {
+//     // OLD SINGLE SAMPLE CODE (keep for reference):
+//     // Trigger ADC conversion
+//     (*(volatile uint32_t *)0x400BA004U) = 0x1U;  // SARADC_START
+    
+//     // Wait for CH3 end of conversion (0x400BA028 = CH0 + 3*sizeof(ADC_Channel_t))
+//     while (!(*(volatile uint32_t *)0x400BA028U & 0x1)) {}
+    
+//     // Clear interrupt flag for CH3
+//     (*(volatile uint32_t *)0x400BA00CU) = (1U << 3);
+    
+//     // 12-bit data (0x400BA02C = CH3 DATA register)
+//     return (uint16_t)((*(volatile uint32_t *)0x400BA02CU) & 0xFFFU);
+// }
+
+
 static void CW_ReadADC(bool *tip_out, bool *ring_out)
 {
-    // Trigger ADC conversion
-    (*(volatile uint32_t *)0x400BA004U) = 0x1U;  // SARADC_START
+    // Take baseline ADC sample with timing
+    // uint16_t start_tick = timer_jiffies();
     
-    // Wait for CH3 end of conversion (0x400BA028 = CH0 + 3*sizeof(ADC_Channel_t))
-    while (!(*(volatile uint32_t *)0x400BA028U & 0x1)) {}
+    // being absolutely paranoid about performance, we enable only CH3 for this loop, then set back
+    uint32_t regval = SARADC_CFG;
+    SARADC_CFG = (regval & ~SARADC_CFG_CH_SEL_MASK) | (ADC_CH3 << SARADC_CFG_CH_SEL_SHIFT);
+
+    ADC_Start();
+    while (!ADC_CheckEndOfConversion(ADC_CH3)) {}
+    uint16_t baseline = ADC_GetValue(ADC_CH3);
+
+    // Validate with up to 4 more samples - stop if any differs by >40 from baseline
+    uint16_t val = baseline;
+    int samples_taken = 1;
     
-    // Clear interrupt flag for CH3
-    (*(volatile uint32_t *)0x400BA00CU) = (1U << 3);
+    for (int i = 0; i < 12; i++) {
+        ADC_Start();
+        while (!ADC_CheckEndOfConversion(ADC_CH3)) {}
+        uint16_t sample = ADC_GetValue(ADC_CH3);
+        samples_taken++;
+        
+        int16_t diff = (int16_t)sample - (int16_t)baseline;
+        if (diff < 0) diff = -diff;
+        
+        if (diff > 20) {
+            val = 0;  // Inconsistent reading detected
+            break;
+            SYSTICK_DelayUs(5);  // Short delay before next sample
+        }
+    }
+    SARADC_CFG = regval;  // Restore original channel config so battery monitoring etc. still works
     
-    // 12-bit data (0x400BA02C = CH3 DATA register)
-    uint16_t val = (uint16_t)((*(volatile uint32_t *)0x400BA02CU) & 0xFFFU);
+    // uint16_t elapsed = timer_jiffies_since(start_tick);
+    // Log timing and validation
+    // char log_buf[64];
+    // sprintf(log_buf, "ADC: %u jiffies, %d samples, baseline=%u->%u\r\n", elapsed, samples_taken, baseline, val);
+    // UART_LogSend(log_buf, strlen(log_buf));
 
     if (val < 90) return;  // no paddle pressed
-    if (val < 260) *tip_out = true;
-    else if (val  < 430) *ring_out = true;
+    else if (val < 260) *ring_out = true;  // 20k ohm
+    else if (val < 430) *tip_out  = true;  // 10k ohm
     else *tip_out = *ring_out = true;
 }
 

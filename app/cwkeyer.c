@@ -438,7 +438,7 @@ bool CW_CheckKeyerInputs(uint8_t new_mode)
     UART_Send("done with config, starting validation\r\n", 40);
 #endif
 
-    // Check inputs with 10ms intervals - consider stuck if key stays down for over 10 consecutive checks
+    // Check inputs with 1ms intervals - consider stuck if key stays down for 3 checks out of 20
     int stuck_count = 0;
     bool any_stuck = false;
 #if CW_KEYER_DEBUG
@@ -461,12 +461,10 @@ bool CW_CheckKeyerInputs(uint8_t new_mode)
         
         if (dit || dah) {
             stuck_count++;
-            if (stuck_count > 10) {
+            if (stuck_count > 2) {  // 3 strikes
                 any_stuck = true;
                 break;
             }
-        } else {
-            stuck_count = 0;  // Reset if keys released
         }
         
         SYSTEM_DelayMs(1);

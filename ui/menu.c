@@ -409,15 +409,15 @@ const char* gSubMenu_CW_KEYER_MODE[] =
 const char* gSubMenu_CW_KEY_INPUT[] =
 {
 	"PTT\nHandKey",
-	"PTT+port\nHandKey",
+	"PTT+TIP\nHandKey",
 	"PTT dah\nSD1 dit",
 	"PTT dit\nSD1 dah",
-	"PTT+tip\ndah\nring\ndit",
-	"PTT+tip\ndit\nring\ndah",
-	"PTT+tip\ndah\nSD1+rng\ndit",
-	"PTT+tip\ndit\nSD1+rng\ndah",
+	"PTT+TIP\ndah\nRING\ndit",
+	"PTT+TIP\ndit\nRING\ndah",
+	"PTT+TIP\ndah\nSD1+RING\ndit",
+	"PTT+TIP\ndit\nSD1+RING\ndah",
 	"CEC\nCable",
-	"CEC\nCable\rReversed"
+	"CEC\nCable\nReversed"
 };
 
 const char* gSubMenu_CW_MSG[] =

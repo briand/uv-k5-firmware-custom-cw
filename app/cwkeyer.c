@@ -1,4 +1,20 @@
-// CW Iambic Keyer implementation
+ /* Copyright 2026 NR7Y
+ * https://github.com/briand
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *     Unless required by applicable law or agreed to in writing, software
+ *     distributed under the License is distributed on an "AS IS" BASIS,
+ *     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *     See the License for the specific language governing permissions and
+ *     limitations under the License.
+ */
+
+ // CW Iambic Keyer implementation
 // Lean FSM for iambic A/B with optional reversed mapping
 
 #include <stdint.h>
@@ -115,13 +131,16 @@ void CW_UpdateWPM()
 // Called when changing to non-CW mode
 void CW_KeyerDeinit()
 {
-    // Was using port ground? Need to put it back
     if(gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_PORT_GROUND)
         CW_ConfigurePortGround(false);
 
-    // Was using port ring? Need to put it back
     if(gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_PORT_RING)
         CW_ConfigurePortRing(false);
+
+    if(gEeprom.CW_KEY_INPUT & CW_KEY_INPUT_ADC)
+    {
+        CW_ConfigureADCforCECPaddles(false);
+    }
 
     gCW_KeyerUsingSD1 = false;
     s_enable_keyer = false;
@@ -137,7 +156,7 @@ static void CW_KeyerInit()
     // Configure port pins based on bit flags
     bool uses_port_ground = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_PORT_GROUND);
     bool uses_port_ring = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_PORT_RING);
-    
+    bool uses_adc = (gEeprom.CW_KEY_INPUT & CW_KEY_INPUT_ADC);
 #if CW_KEYER_DEBUG
     bool is_handkey = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_NO_KEYER);
     bool uses_buttons = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_BUTTONS);
@@ -146,9 +165,10 @@ static void CW_KeyerInit()
              gEeprom.CW_KEY_INPUT, is_handkey, uses_buttons, uses_port_ground, uses_port_ring, (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_REVERSED));
     UART_Send(buf, strlen(buf));
 #endif
-    
+
     CW_ConfigurePortGround(uses_port_ground);
     CW_ConfigurePortRing(uses_port_ring);
+    CW_ConfigureADCforCECPaddles(uses_adc);
 
     gCW_KeyerUsingSD1 = gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_SIDE1;
 
@@ -388,7 +408,8 @@ bool CW_CheckKeyerInputs(uint8_t new_mode)
     // Determine if we need to configure port pins for this mode (use bit flags)
     bool uses_port_ground = (new_mode & CW_KEY_FLAG_PORT_GROUND);
     bool uses_port_ring = (new_mode & CW_KEY_FLAG_PORT_RING);
-    
+    bool uses_adc = (new_mode & CW_KEY_INPUT_ADC);
+
     // Button-only modes don't need validation (no port pins to check)
     if (!uses_port_ground && !uses_port_ring) {
         return true;
@@ -406,14 +427,18 @@ bool CW_CheckKeyerInputs(uint8_t new_mode)
         CW_ConfigurePortGround(uses_port_ground);
         CW_ConfigurePortRing(uses_port_ring);
         
-        // Allow pins to stabilize after configuration
-        SYSTEM_DelayMs(50);
+    } else if(uses_adc) {
+        CW_ConfigureADCforCECPaddles(true);
     }
+
+    // Allow pins to stabilize after configuration
+    SYSTEM_DelayMs(50);
+
 #if CW_KEYER_DEBUG
     UART_Send("done with config, starting validation\r\n", 40);
 #endif
 
-    // Check inputs with 10ms intervals - consider stuck if key stays down for over 10 consecutive checks
+    // Check inputs with 1ms intervals - consider stuck if key stays down for 3 checks out of 20
     int stuck_count = 0;
     bool any_stuck = false;
 #if CW_KEYER_DEBUG
@@ -436,12 +461,10 @@ bool CW_CheckKeyerInputs(uint8_t new_mode)
         
         if (dit || dah) {
             stuck_count++;
-            if (stuck_count > 10) {
+            if (stuck_count > 2) {  // 3 strikes
                 any_stuck = true;
                 break;
             }
-        } else {
-            stuck_count = 0;  // Reset if keys released
         }
         
         SYSTEM_DelayMs(1);
@@ -464,9 +487,15 @@ bool CW_CheckKeyerInputs(uint8_t new_mode)
 #if CW_KEYER_DEBUG
     UART_Send("CW keyer inputs stuck\r\n", 24);
 #endif
-
-    CW_ConfigurePortGround(false);
-    CW_ConfigurePortRing(false);
+    if (uses_port_ground || uses_port_ring)
+    {   
+        CW_ConfigurePortGround(false);
+        CW_ConfigurePortRing(false);
+    }
+    if(uses_adc)
+    {
+        CW_ConfigureADCforCECPaddles(false);
+    }
 
     return false;
 }

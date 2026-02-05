@@ -34,7 +34,8 @@ enum POWER_OnDisplayMode_t {
 typedef enum POWER_OnDisplayMode_t POWER_OnDisplayMode_t;
 
 #ifdef ENABLE_CW_MODULATOR
-// Bit flags for CW key input configuration
+
+// Bit flags for CW keyer input configuration
 #define CW_KEY_FLAG_REVERSED      0x01  // 0=normal, 1=reversed
 #define CW_KEY_FLAG_PORT_RING     0x02  // 0=no port ring, 1=use port ring input
 #define CW_KEY_FLAG_SIDE1         0x04  // 0=not side1, 1=use side1 button (plus PTT)
@@ -55,6 +56,20 @@ enum CW_KeyInputType_t {
 	CW_KEY_INPUT_ADC_REVERSED     = 0x21   // ADC (CEC cable) input + reversed
 };
 typedef enum CW_KeyInputType_t CW_KeyInputType_t;
+
+	// CW key input selection (0-7) mapped to bitmap value - used for menu and eeprom
+	static const uint8_t CW_KEY_INPUT_menu_to_bitmap[10] = {
+		0x08, // 0: HANDKEY
+		0x18, // 1: HANDKEY_PORT
+		0x04, // 2: BUTTONS_NORMAL
+		0x05, // 3: BUTTONS_REVERSED
+		0x12, // 4: PORT_NORMAL
+		0x13, // 5: PORT_REVERSED
+		0x16, // 6: BOTH_NORMAL
+		0x17, // 7: BOTH_REVERSED
+		0x20, // 8: (CEC) CW_KEY_INPUT_ADC
+		0x21  // 9: (CEC) CW_KEY_INPUT_ADC_REVERSED
+	};
 
 enum CW_IambicMode_t {
 	CW_IAMBIC_MODE_A = 0,
@@ -304,7 +319,8 @@ typedef struct {
 	uint8_t               CW_SIDETONE_LEVEL;	// CW sidetone level: 0=off, 1-6 scaled volume levels
 	CW_IambicMode_t       CW_KEYER_MODE;		// Iambic A or B (keyer disabled when CW_KEY_INPUT == HANDKEY)
 	uint8_t               CW_KEY_WPM;			// actual WPM
-	CW_KeyInputType_t     CW_KEY_INPUT;			// Combined button/port input selection
+	CW_KeyInputType_t     CW_KEY_INPUT;			// Bitmapped button/port input selections for CW keyer
+	uint16_t			  CW_KEY_INPUT_MENU;	// index of the chosen input method in the menu
 	CW_OperModeType_t     CW_OPER_MODE;			// CW operating mode: break-in, CPO+RX, CPO+mute
 	uint8_t               CW_MESSAGE_REPEAT_DELAY;  // Repeat delay in seconds
 #endif

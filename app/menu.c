@@ -51,20 +51,6 @@
 	#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
 #endif
 
-#ifdef ENABLE_CW_MODULATOR
-	// CW key input menu selection (0-7) to bit-mapped value lookup
-	static const uint8_t CW_KEY_INPUT_menu_to_bitmap[8] = {
-		0x08, // 0: HANDKEY
-		0x18, // 1: HANDKEY_PORT
-		0x04, // 2: BUTTONS_NORMAL
-		0x05, // 3: BUTTONS_REVERSED
-		0x12, // 4: PORT_NORMAL
-		0x13, // 5: PORT_REVERSED
-		0x16, // 6: BOTH_NORMAL
-		0x17  // 7: BOTH_REVERSED
-	};
-#endif
-
 uint8_t gUnlockAllTxConfCnt;
 
 #ifdef ENABLE_CW_MODULATOR
@@ -409,7 +395,7 @@ int MENU_GetLimits(uint8_t menu_id, int32_t *pMin, int32_t *pMax)
 
 		case MENU_CW_KEY_INPUT:
 			*pMin = 0;
-			*pMax = 7;
+			*pMax = 9;
 			break;
 
 		case MENU_CW_MSG1:
@@ -902,10 +888,12 @@ void MENU_AcceptSetting(void)
 					// Validation failed - keys stuck
 					gCwKeyInputCheckFailed = true;
 					gEeprom.CW_KEY_INPUT = CW_KEY_INPUT_HANDKEY; // Revert to safe default
+					gEeprom.CW_KEY_INPUT_MENU = 0;
 					gRequestDisplayScreen = DISPLAY_MENU;
 					return;  // Don't accept the new setting
 				}
 				gCwKeyInputCheckFailed = false;
+				gEeprom.CW_KEY_INPUT_MENU = gSubMenuSelection;
 				gEeprom.CW_KEY_INPUT = new_mode;
 				CW_KeyerReconfigure(gTxVfo->Modulation == MODULATION_CW);
 			}
@@ -1339,17 +1327,7 @@ void MENU_ShowCurrentSetting(void)
 			break;
 
 		case MENU_CW_KEY_INPUT:
-		// Map bit-mapped value back to menu selection (0-7) by searching array
-		{
-			uint8_t val = gEeprom.CW_KEY_INPUT;
-			gSubMenuSelection = 0;  // Default to HANDKEY if not found
-			for (int i = 0; i < 8; i++) {
-				if (CW_KEY_INPUT_menu_to_bitmap[i] == val) {
-					gSubMenuSelection = i;
-					break;
-				}
-			}
-		}
+			gSubMenuSelection = gEeprom.CW_KEY_INPUT_MENU;
 		break;
 
 		case MENU_CW_MSG1:

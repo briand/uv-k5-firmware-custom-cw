@@ -1,4 +1,20 @@
-// CW Macro system
+ /* Copyright 2026 NR7Y
+ * https://github.com/briand
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *     Unless required by applicable law or agreed to in writing, software
+ *     distributed under the License is distributed on an "AS IS" BASIS,
+ *     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *     See the License for the specific language governing permissions and
+ *     limitations under the License.
+ */
+
+ // CW Macro system
 // Storage format: first byte = length (0xff = empty), remaining bytes = characters
 // Each character byte: bits 0-6 = character, bit 7 = space before character
 // Supported characters: A-Z, 0-9, '/', '?'
@@ -71,12 +87,6 @@ extern uint8_t gCW_RecordMacroIndex;  // Which macro (0-3)
 extern uint8_t gCW_RecordBuffer[CW_MACRO_MAX_LEN];  // Encoded characters
 extern uint8_t gCW_RecordLength;  // Current length
 extern bool gCW_RecordNewChar;  // Flag: new character ready for display update
-
-// Playback state (shared with cwkeyer.c)
-extern bool gCW_PlaybackActive;
-extern bool gCW_PlaybackRepeat;
-extern uint8_t gCW_PlaybackMacroIndex;
-extern uint16_t gCW_MessageRepeatCountdown_500ms;
 
 // Playback state (moved from cwkeyer.c static)
 extern bool gCW_PlaybackActive;         // true while macro playback is in progress

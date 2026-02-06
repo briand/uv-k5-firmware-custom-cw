@@ -3,7 +3,7 @@
 # 0 = disable
 # 1 = enable
 
-# ---- STOCK QUANSHENG FERATURES ----
+# ---- STOCK QUANSHENG FEATURES ----
 ENABLE_UART                   ?= 1
 ENABLE_AIRCOPY                ?= 0
 ENABLE_FMRADIO                ?= 0
@@ -18,12 +18,12 @@ ENABLE_FLASHLIGHT             ?= 1
 
 # ---- CUSTOM MODS ----
 ENABLE_BIG_FREQ               ?= 1
-ENABLE_SMALL_BOLD             ?= 1
+ENABLE_SMALL_BOLD             ?= 0
 ENABLE_CUSTOM_MENU_LAYOUT     ?= 1
 ENABLE_KEEP_MEM_NAME          ?= 1
 ENABLE_WIDE_RX                ?= 1
 ENABLE_TX_WHEN_AM             ?= 1
-ENABLE_F_CAL_MENU             ?= 0
+ENABLE_F_CAL_MENU             ?= 1
 ENABLE_CTCSS_TAIL_PHASE_SHIFT ?= 0
 ENABLE_BOOT_BEEPS             ?= 0
 ENABLE_SHOW_CHARGE_LEVEL      ?= 0
@@ -47,11 +47,11 @@ ENABLE_EXTRA_FILTER           ?= 1
 # ---- DEBUGGING ----
 ENABLE_AM_FIX_SHOW_DATA       ?= 0
 ENABLE_AGC_SHOW_DATA          ?= 0
-ENABLE_UART_RW_BK_REGS        ?= 1
+ENABLE_UART_RW_BK_REGS        ?= 0
 
 # ---- COMPILER/LINKER OPTIONS ----
 ENABLE_CLANG                  ?= 0
-ENABLE_SWD                    ?= 1
+ENABLE_SWD                    ?= 0
 ENABLE_OVERLAY                ?= 0
 ENABLE_LTO                    ?= 1
 

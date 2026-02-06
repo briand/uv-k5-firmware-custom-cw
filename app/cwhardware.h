@@ -20,6 +20,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define CW_ADC_20K_MIN 100  // anything less is not a valid target (would have to be an open circuit)
+#define CW_ADC_10K_MIN 200 // anything less is not a valid target (wouldn't be able to tell them apart)
+#define CW_ADC_MAX 1000 // anything more is not a valid target (would have to be a short circuit or VCC)
+#define CW_ADC_GLITCH_GUARDBAND 20  // ADC readings must be within ±20 of expected value to be considered valid
+#define CW_ADC_RANGE_LIMIT 50  // Furthest the read value is allowed away from centroid 
+
 // Normalized paddle input + edge flags
 typedef struct {
     bool dit;
@@ -33,6 +39,9 @@ bool CW_ReadKeysForMode(uint8_t mode, bool *dit_out, bool *dah_out);
 
 // Read normalized paddle inputs (computes edges)
 void CW_ReadKeys(CW_Input *in);
+
+// Read raw ADC value for CEC cable input
+uint16_t CW_ReadCH3(void);
 
 // Configure port pins for paddle interface
 void CW_ConfigurePortGround(bool enable);

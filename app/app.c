@@ -845,7 +845,7 @@ void APP_Update(void)
 
 #ifdef ENABLE_CW_MODULATOR
 
-	if (gTxVfo->Modulation == MODULATION_CW) 
+	if (gTxVfo->Modulation == MODULATION_CW || gTxVfo->Modulation == MODULATION_CPO)
 	{
 		CW_Action_t action;
 		if (gCW_PlaybackActive)
@@ -853,8 +853,8 @@ void APP_Update(void)
 		else
 			action = CW_HandleState();
 		
-		// Don't transmit RF if we're recording a macro or in practice keyer mode
-		if (gCW_Recording || (gEeprom.CW_OPER_MODE != CW_OPER_MODE_BREAK_IN)) {
+		// Don't transmit RF if we're recording a macro, reading ADC, breakin disabled, or in practice keyer mode
+		if (gCW_Recording || gCW_AdcReadActive || !gEeprom.CW_BREAKIN_ENABLE || (gTxVfo->Modulation == MODULATION_CPO)) {
 			switch(action)
 			{
 				case CW_ACTION_CARRIER_ON:
@@ -865,7 +865,7 @@ void APP_Update(void)
 						(gEeprom.CW_SIDETONE_LEVEL << BK4819_REG_70_SHIFT_TONE1_TUNING_GAIN));
 					// Set local AF sidetone freq in Hz
 					BK4819_SetScrambleFrequencyControlWord(gEeprom.CW_TONE_FREQUENCY * 10);
-					if(gEeprom.CW_OPER_MODE != CW_OPER_MODE_BREAK_IN)
+					if(gTxVfo->Modulation == MODULATION_CPO)
 						gCW_TxDisplayHoldoff_10ms = 1000;  // show decode display for CPO, hold for 10 seconds
 				break;
 				case CW_ACTION_CARRIER_OFF:
@@ -1468,6 +1468,11 @@ void APP_TimeSlice500ms(void)
 		if (gCW_Recording) {
 			gMenuCountdown = menu_timeout_500ms;  // Keep resetting the timer
 			gBacklightCountdown_500ms = 2; // keep backlight on
+		} else if (gScreenToDisplay == DISPLAY_MENU && gIsInSubMenu
+				   && UI_MENU_GetCurrentMenuId() == MENU_CW_CRD) {
+			gMenuCountdown = menu_timeout_500ms;  // Keep resetting the timer
+			gBacklightCountdown_500ms = 2; // keep backlight on
+			gUpdateDisplay = true; // refresh CW ADC readout every 500ms
 		} else
 #endif
 		if (--gMenuCountdown == 0)

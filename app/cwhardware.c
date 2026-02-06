@@ -123,9 +123,14 @@ static void CW_ReadPtt(bool *ptt_out)
 //     // 12-bit data (0x400BA02C = CH3 DATA register)
 //     return (uint16_t)((*(volatile uint32_t *)0x400BA02CU) & 0xFFFU);
 // }
+uint16_t CW_ReadCH3()
+{    
+    ADC_Start();
+    while (!ADC_CheckEndOfConversion(ADC_CH3)) {}
+    return ADC_GetValue(ADC_CH3);
+}
 
-
-static void CW_ReadADC(bool *tip_out, bool *ring_out)
+static void CW_ReadADCkeys(bool *tip_out, bool *ring_out)
 {
     // Take baseline ADC sample with timing
     // uint16_t start_tick = timer_jiffies();
@@ -134,24 +139,20 @@ static void CW_ReadADC(bool *tip_out, bool *ring_out)
     uint32_t regval = SARADC_CFG;
     SARADC_CFG = (regval & ~SARADC_CFG_CH_SEL_MASK) | (ADC_CH3 << SARADC_CFG_CH_SEL_SHIFT);
 
-    ADC_Start();
-    while (!ADC_CheckEndOfConversion(ADC_CH3)) {}
-    uint16_t baseline = ADC_GetValue(ADC_CH3);
+    uint16_t baseline = CW_ReadCH3();
 
     // Validate with up to 4 more samples - stop if any differs by >40 from baseline
     uint16_t val = baseline;
     int samples_taken = 1;
     
     for (int i = 0; i < 12; i++) {
-        ADC_Start();
-        while (!ADC_CheckEndOfConversion(ADC_CH3)) {}
-        uint16_t sample = ADC_GetValue(ADC_CH3);
+        uint16_t sample = CW_ReadCH3();
         samples_taken++;
         
         int16_t diff = (int16_t)sample - (int16_t)baseline;
         if (diff < 0) diff = -diff;
         
-        if (diff > 20) {
+        if (diff > CW_ADC_GLITCH_GUARDBAND) {
             val = 0;  // Inconsistent reading detected
             break;
             SYSTICK_DelayUs(5);  // Short delay before next sample
@@ -165,9 +166,9 @@ static void CW_ReadADC(bool *tip_out, bool *ring_out)
     // sprintf(log_buf, "ADC: %u jiffies, %d samples, baseline=%u->%u\r\n", elapsed, samples_taken, baseline, val);
     // UART_LogSend(log_buf, strlen(log_buf));
 
-    if (val < 90) return;  // no paddle pressed
-    else if (val < 260) *ring_out = true;  // 20k ohm
-    else if (val < 430) *tip_out  = true;  // 10k ohm
+    if (val < gEeprom.CW_ADC_CABLE_20K - CW_ADC_RANGE_LIMIT || val > CW_ADC_MAX) return;  // no paddle pressed or fault
+    else if (val < gEeprom.CW_ADC_CABLE_20K + CW_ADC_RANGE_LIMIT) *ring_out = true;  // 20k ohm
+    else if (val < gEeprom.CW_ADC_CABLE_10K + CW_ADC_RANGE_LIMIT) *tip_out  = true;  // 10k ohm
     else *tip_out = *ring_out = true;
 }
 
@@ -184,7 +185,7 @@ bool CW_ReadKeysForMode(uint8_t mode, bool *dit_out, bool *dah_out)
         // ADC (CEC cable) input
         bool adc_tip = false;
         bool adc_ring = false;
-        CW_ReadADC(&adc_tip, &adc_ring);
+        CW_ReadADCkeys(&adc_tip, &adc_ring);
 
         // Determine if keys are reversed
         bool reverse = (mode & CW_KEY_FLAG_REVERSED);

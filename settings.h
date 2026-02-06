@@ -77,12 +77,6 @@ enum CW_IambicMode_t {
 };
 typedef enum CW_IambicMode_t CW_IambicMode_t;
 
-typedef enum CW_OperModeType_t {
-	CW_OPER_MODE_BREAK_IN = 0,
-	CW_OPER_MODE_CPO_RX,
-	CW_OPER_MODE_CPO_MUTE
-} CW_OperModeType_t;
-
 #endif
 
 enum TxLockModes_t {
@@ -321,8 +315,10 @@ typedef struct {
 	uint8_t               CW_KEY_WPM;			// actual WPM
 	CW_KeyInputType_t     CW_KEY_INPUT;			// Bitmapped button/port input selections for CW keyer
 	uint16_t			  CW_KEY_INPUT_MENU;	// index of the chosen input method in the menu
-	CW_OperModeType_t     CW_OPER_MODE;			// CW operating mode: break-in, CPO+RX, CPO+mute
+	bool     			  CW_BREAKIN_ENABLE;    // TX on key
 	uint8_t               CW_MESSAGE_REPEAT_DELAY;  // Repeat delay in seconds
+	uint16_t              CW_ADC_CABLE_10K;         // ADC threshold for 10k resistor (CEC cable detection)
+	uint16_t              CW_ADC_CABLE_20K;         // ADC threshold for 20k resistor (CEC cable detection)
 #endif
 
 } EEPROM_Config_t;

@@ -21,6 +21,7 @@
 #include "../app/menu.h"
 #ifdef ENABLE_CW_MODULATOR
 	#include "../app/cwmacro.h"
+	#include "../app/cwhardware.h"
 #endif
 #include "../bitmaps.h"
 #include "../board.h"
@@ -137,7 +138,7 @@ const t_menu_item MenuList[] =
 	{"CWmsg3", VOICE_ID_INVALID,                       MENU_CW_MSG3       },
 	{"CWmsg4", VOICE_ID_INVALID,                       MENU_CW_MSG4       },
 	{"CWmrpt", VOICE_ID_INVALID,                       MENU_CW_MSG_REPEAT },
-	{"CWcpo", VOICE_ID_INVALID,                        MENU_CW_CPO        },
+	{"CWbkin", VOICE_ID_INVALID,                       MENU_CW_BKIN       },
 #endif
 
 	// hidden menu items from here on
@@ -153,6 +154,11 @@ const t_menu_item MenuList[] =
 #endif
 	{"BatCal", VOICE_ID_INVALID,                       MENU_BATCAL        }, // battery voltage calibration
 	{"BatTyp", VOICE_ID_INVALID,                       MENU_BATTYP        }, // battery type 1600/2200mAh
+	#ifdef ENABLE_CW_MODULATOR
+	{"CWcrd", VOICE_ID_INVALID,                       MENU_CW_CRD        },
+	{"CWclo", VOICE_ID_INVALID,                       MENU_CW_CLO        },
+	{"CWchi", VOICE_ID_INVALID,                       MENU_CW_CHI        },
+	#endif
 	{"Reset",  VOICE_ID_INITIALISATION,                MENU_RESET         }, // might be better to move this to the hidden menu items ?
 
 	{"",       VOICE_ID_INVALID,                       0xff               }  // end of list - DO NOT delete or move this this
@@ -926,7 +932,7 @@ void UI_DisplayMenu(void)
 			strcpy(String, gSubMenu_CW_KEY_INPUT[gSubMenuSelection]);
 			break;
 
-		case MENU_CW_CPO:
+		case MENU_CW_BKIN:
 			strcpy(String, gSubMenu_OFF_ON[gSubMenuSelection]);
 			break;
 
@@ -977,6 +983,23 @@ void UI_DisplayMenu(void)
 					// record/play
 					strcpy(String, gSubMenu_CW_MSG[gSubMenuSelection-1]);
 				}
+			}
+			break;
+
+		case MENU_CW_CLO:
+			sprintf(String, "%u", gSubMenuSelection);
+			break;
+
+		case MENU_CW_CHI:
+			sprintf(String, "%u", gSubMenuSelection);
+			break;
+
+		case MENU_CW_CRD:
+			if (gIsInSubMenu) {
+				uint16_t adc = CW_ReadCH3();
+				sprintf(String, "%u", adc);
+			} else {
+				strcpy(String, "ADC\nRead\nCheck");
 			}
 			break;
 #endif

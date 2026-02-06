@@ -22,6 +22,7 @@
 #include "app/cwkeyer.h"
 #ifdef ENABLE_CW_MODULATOR
 	#include "app/cwmacro.h"
+	#include "app/cwhardware.h"
 #endif
 #include "app/dtmf.h"
 #include "app/generic.h"
@@ -56,6 +57,7 @@ uint8_t gUnlockAllTxConfCnt;
 #ifdef ENABLE_CW_MODULATOR
 bool gCwKeyInputCheckFailed = false;
 bool gCwNoKeyerError = false;
+bool gCW_AdcReadActive = false;
 #endif
 
 #ifdef ENABLE_F_CAL_MENU
@@ -411,9 +413,24 @@ int MENU_GetLimits(uint8_t menu_id, int32_t *pMin, int32_t *pMax)
 			*pMax = 127;  // 0-127 menu value (stored as seconds)
 			break;
 
-		case MENU_CW_CPO:
+		case MENU_CW_BKIN:
 			*pMin = 0;  // off
 			*pMax = 1;  // on
+			break;
+
+		case MENU_CW_CRD:
+			*pMin = 0;
+			*pMax = 0;
+			break;
+
+		case MENU_CW_CLO:
+			*pMin = CW_ADC_20K_MIN;
+			*pMax = gEeprom.CW_ADC_CABLE_10K - (CW_ADC_RANGE_LIMIT * 2);
+			break;
+
+		case MENU_CW_CHI:
+			*pMin = CW_ADC_10K_MIN;
+			*pMax = CW_ADC_MAX;
 			break;
 #endif
 		default:
@@ -875,9 +892,20 @@ void MENU_AcceptSetting(void)
 			gEeprom.CW_KEYER_MODE = gSubMenuSelection;
 			break;
 
-		case MENU_CW_CPO:
-			gEeprom.CW_OPER_MODE = gSubMenuSelection;  // 0=off (BREAK_IN), 1=on (CPO_RX)
+		case MENU_CW_BKIN:
+			gEeprom.CW_BREAKIN_ENABLE = gSubMenuSelection;  // 0=off (BREAK_IN), 1=on (CPO_RX)
 			break;
+
+		case MENU_CW_CLO:
+			gEeprom.CW_ADC_CABLE_20K = gSubMenuSelection;
+			break;
+
+		case MENU_CW_CHI:
+			gEeprom.CW_ADC_CABLE_10K = gSubMenuSelection;
+			break;
+
+		case MENU_CW_CRD:
+			return;
 
 		case MENU_CW_KEY_INPUT:
 			// Map menu selection (0-7) to bit-mapped value
@@ -1322,13 +1350,25 @@ void MENU_ShowCurrentSetting(void)
 		case MENU_CW_KEYER_MODE:
 			gSubMenuSelection = gEeprom.CW_KEYER_MODE;
 			break;
-		case MENU_CW_CPO:
-			gSubMenuSelection = (gEeprom.CW_OPER_MODE > 0) ? 1 : 0;  // Show as off(0) or on(1)
+		case MENU_CW_BKIN:
+			gSubMenuSelection = gEeprom.CW_BREAKIN_ENABLE;
 			break;
 
 		case MENU_CW_KEY_INPUT:
 			gSubMenuSelection = gEeprom.CW_KEY_INPUT_MENU;
 		break;
+
+		case MENU_CW_CLO:
+			gSubMenuSelection = gEeprom.CW_ADC_CABLE_20K;
+			break;
+
+		case MENU_CW_CHI:
+			gSubMenuSelection = gEeprom.CW_ADC_CABLE_10K;
+			break;
+
+		case MENU_CW_CRD:
+			gSubMenuSelection = 0;
+			break;
 
 		case MENU_CW_MSG1:
 		case MENU_CW_MSG2:
@@ -1510,13 +1550,16 @@ static void MENU_Key_EXIT(bool bKeyPressed, bool bKeyHeld)
 	gBeepToPlay = BEEP_1KHZ_60MS_OPTIONAL;
 
 #ifdef ENABLE_CW_MODULATOR
-	// Handle exiting CW macro recording mode (discard without saving)
-	if (gCW_Recording) {
+	// Handle exiting CW macro recording mode (discard without saving) or ADC read
+	if (gCW_Recording || gCW_AdcReadActive) {
+		gCW_AdcReadActive = false;
+		CW_KeyerReconfigure(true);
 		gCW_Recording = false;
 		gCW_RecordNewChar = false;
 		edit_index = -1;
 		gIsInSubMenu = false;
 		gSubMenuSelection = 0;
+		gFlagRefreshSetting = true;
 		gRequestDisplayScreen = DISPLAY_MENU;
 		return;
 	}
@@ -1588,12 +1631,13 @@ static void MENU_Key_MENU(const bool bKeyPressed, const bool bKeyHeld)
 	gRequestDisplayScreen = DISPLAY_MENU;
 
 #ifdef ENABLE_CW_MODULATOR
-	// Handle completing CW macro recording mode
+	// Handle completing CW macro recording or ADC read mode
 	if (gCW_Recording) {
 		CW_StopRecording();
+		gCW_AdcReadActive = false;
 		edit_index = -1;
 		gIsInSubMenu = false;
-		gSubMenuSelection = 0;  // Show the saved macro
+		gSubMenuSelection = 0;  // Show the saved macro for record
 		return;
 	}
 #endif
@@ -1622,6 +1666,14 @@ static void MENU_Key_MENU(const bool bKeyPressed, const bool bKeyHeld)
 #ifdef ENABLE_CW_MODULATOR
 		gCwKeyInputCheckFailed = false;  // Clear error when entering submenu
 		gCwNoKeyerError = false;
+		if (UI_MENU_GetCurrentMenuId() == MENU_CW_CRD)
+		{
+			CW_KeyerReconfigure(false);
+			CW_ConfigureADCforCECPaddles(true);
+			gCW_AdcReadActive = true;
+			edit_index = 0;  // Use edit_index >= 0 to signal read mode
+			return;
+		}
 #endif
 
 //		if (UI_MENU_GetCurrentMenuId() != MENU_D_LIST)
@@ -1715,6 +1767,17 @@ static void MENU_Key_MENU(const bool bKeyPressed, const bool bKeyHeld)
 		else
 		{
 #ifdef ENABLE_CW_MODULATOR
+			if (UI_MENU_GetCurrentMenuId() == MENU_CW_CRD)
+			{
+				CW_KeyerReconfigure(true);
+				gCW_AdcReadActive = false;
+				edit_index = -1;
+				gIsInSubMenu = false;
+				gFlagAcceptSetting = false;
+				gFlagRefreshSetting = true;
+				gRequestDisplayScreen = DISPLAY_MENU;
+				return;
+			}
 			// Special handling: if we're about to start CW macro recording, stay in submenu
 			if ((UI_MENU_GetCurrentMenuId() >= MENU_CW_MSG1 && UI_MENU_GetCurrentMenuId() <= MENU_CW_MSG4)
 			    && gSubMenuSelection == 1)

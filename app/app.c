@@ -570,7 +570,7 @@ static void CheckRadioInterrupts(void)
 		return;
 
 	#ifdef ENABLE_CW_MODULATOR
-		if (gCurrentVfo->Modulation == MODULATION_CPO || (gCurrentFunction == FUNCTION_TRANSMIT && gTxVfo->Modulation == MODULATION_CW))
+		if (gCurrentFunction == FUNCTION_TRANSMIT && gTxVfo->Modulation == MODULATION_CW)
 			return;  // no interrupts during CW TX
 	#endif
 
@@ -845,7 +845,7 @@ void APP_Update(void)
 
 #ifdef ENABLE_CW_MODULATOR
 
-	if (gTxVfo->Modulation == MODULATION_CW || gCurrentVfo->Modulation == MODULATION_CPO)
+	if (gTxVfo->Modulation == MODULATION_CW)
 	{
 		CW_Action_t action;
 		if (gCW_PlaybackActive)
@@ -853,8 +853,8 @@ void APP_Update(void)
 		else
 			action = CW_HandleState();
 		
-		// Don't transmit RF if we're recording a macro, reading ADC, breakin disabled, or in practice keyer mode
-		if (gCW_Recording || gCW_AdcReadActive || !gEeprom.CW_BREAKIN_ENABLE || (gCurrentVfo->Modulation == MODULATION_CPO)) {
+		// Don't transmit RF if we're recording a macro, reading ADC, or breakin disabled
+		if (gCW_Recording || gCW_AdcReadActive || !gEeprom.CW_BREAKIN_ENABLE) {
 			switch(action)
 			{
 				case CW_ACTION_CARRIER_ON:
@@ -865,13 +865,13 @@ void APP_Update(void)
 						(gEeprom.CW_SIDETONE_LEVEL << BK4819_REG_70_SHIFT_TONE1_TUNING_GAIN));
 					// Set local AF sidetone freq in Hz
 					BK4819_SetScrambleFrequencyControlWord(gEeprom.CW_TONE_FREQUENCY * 10);
-					if(gCurrentVfo->Modulation == MODULATION_CPO)
-						gCW_TxDisplayHoldoff_10ms = 10000;  // show decode display for CPO, hold for 100 seconds
+					gCW_TxDisplayHoldoff_10ms = 100; // start the centerline decoder
 				break;
 				case CW_ACTION_CARRIER_OFF:
 					// Set TONE1 to 0 Hz - this works better than gain to disable sidetone
 					BK4819_SetScrambleFrequencyControlWord(0);
 					RADIO_SetModulation(gRxVfo->Modulation);  // back to RX audio path
+					gCW_TxDisplayHoldoff_10ms = 100; // leave the centerline decoder on for a second
 				break;
 				
 				default:
@@ -904,6 +904,7 @@ void APP_Update(void)
 				//UART_Send("CW Suspend\r\n", 12);
 				RADIO_CW_Suspend();
 				gCW_SuspendCountdown_10ms = 0;
+				gCW_TxDisplayHoldoff_10ms = 100; // leave the centerline decoder on for a second
 			break;
 
 			case CW_ACTION_CARRIER_HOLD_ON:
@@ -1150,7 +1151,7 @@ static void CheckKeys(void)
 	{   // PTT pressed
 
 #ifdef ENABLE_CW_MODULATOR
-		if (gTxVfo->Modulation == MODULATION_CW || gTxVfo->Modulation == MODULATION_CPO) {
+		if (gTxVfo->Modulation == MODULATION_CW) {
 			gPttDebounceCounter = 0; // for CW we handle PTT in the keyer, don't allow ProcessKey to see it
 		}
 #endif
@@ -1946,7 +1947,7 @@ if (gCurrentFunction == FUNCTION_TRANSMIT) {
 	}
 #ifdef ENABLE_CW_MODULATOR
 	else if (Key == KEY_SIDE1 && (gCW_KeyerUsingSD1 && (gCW_Recording || (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_SIDE1)))) {
-		// Block side button 1 if used by keyer during CW macro recording or CPO
+		// Block side button 1 if used by keyer during CW macro recording
 	}
 #endif
 	else if (Key != KEY_SIDE1 && Key != KEY_SIDE2 && gScreenToDisplay != DISPLAY_INVALID) {
@@ -2043,7 +2044,7 @@ Skip:
 
 #ifdef ENABLE_CW_MODULATOR
 	if(gFlagReconfigureVfos)
-		CW_KeyerReconfigure(gTxVfo->Modulation==MODULATION_CW || gCurrentVfo->Modulation == MODULATION_CPO);
+		CW_KeyerReconfigure(gTxVfo->Modulation==MODULATION_CW);
 #endif
 
 #ifdef ENABLE_NOAA

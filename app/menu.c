@@ -923,7 +923,7 @@ void MENU_AcceptSetting(void)
 				gCwKeyInputCheckFailed = false;
 				gEeprom.CW_KEY_INPUT_MENU = gSubMenuSelection;
 				gEeprom.CW_KEY_INPUT = new_mode;
-				CW_KeyerReconfigure(gTxVfo->Modulation == MODULATION_CW || gTxVfo->Modulation == MODULATION_CPO);
+				gFlagReconfigureVfos = true;  // Reconfigure VFOs to apply new key input settings
 			}
 			break;
 
@@ -1550,10 +1550,10 @@ static void MENU_Key_EXIT(bool bKeyPressed, bool bKeyHeld)
 	gBeepToPlay = BEEP_1KHZ_60MS_OPTIONAL;
 
 #ifdef ENABLE_CW_MODULATOR
-	// Handle exiting CW macro recording mode (discard without saving) or ADC read
+	// Handle exiting CW macro recording mode (discard without saving) or ADC read mode
 	if (gCW_Recording || gCW_AdcReadActive) {
 		gCW_AdcReadActive = false;
-		CW_KeyerReconfigure(true);
+		gFlagReconfigureVfos = true;
 		gCW_Recording = false;
 		gCW_RecordNewChar = false;
 		edit_index = -1;
@@ -1668,7 +1668,7 @@ static void MENU_Key_MENU(const bool bKeyPressed, const bool bKeyHeld)
 		gCwNoKeyerError = false;
 		if (UI_MENU_GetCurrentMenuId() == MENU_CW_CRD)
 		{
-			CW_KeyerReconfigure(false);
+			CW_KeyerReconfigure(false);  // halt the keyer
 			CW_ConfigureADCforCECPaddles(true);
 			gCW_AdcReadActive = true;
 			edit_index = 0;  // Use edit_index >= 0 to signal read mode
@@ -1769,7 +1769,7 @@ static void MENU_Key_MENU(const bool bKeyPressed, const bool bKeyHeld)
 #ifdef ENABLE_CW_MODULATOR
 			if (UI_MENU_GetCurrentMenuId() == MENU_CW_CRD)
 			{
-				CW_KeyerReconfigure(true);
+				gFlagReconfigureVfos = true;
 				gCW_AdcReadActive = false;
 				edit_index = -1;
 				gIsInSubMenu = false;

@@ -35,6 +35,8 @@
 #include "driver/timer.h"
 #include "external/printf/printf.h"
 
+#define ENABLE_KEYER_DEBUG 0
+
 // Local state for last sampled paddles (edge detection)
 static bool s_last_dit = false;
 static bool s_last_dah = false;
@@ -175,7 +177,7 @@ static void CW_ReadADCkeys(bool *tip_out, bool *ring_out)
 
 // Read raw paddle inputs for a specific mode
 // Returns true if mode is valid, false otherwise
-bool CW_ReadKeysForMode(CW_KeyInputType_t mode, bool *dit_out, bool *dah_out)
+bool CW_ReadKeysForMode(uint8_t mode, bool *dit_out, bool *dah_out)
 {
     // Check if keyer is disabled (handkey modes)
     if (mode & CW_KEY_FLAG_NO_KEYER) {
@@ -278,7 +280,12 @@ void CW_ConfigurePortGround(bool enable)
 
         // Re-enable DMA Channel 0
         DMA_CH0->CTR |= DMA_CH_CTR_CH_EN_BITS_ENABLE;
-    }
+        }
+#ifdef ENABLE_KEYER_DEBUG
+    char buf[50];
+    sprintf_(buf, "Port Ground %s\r\n", enable ? "Enabled" : "Disabled");
+    UART_Send(buf, strlen(buf));
+#endif
 }
 
 // Configure port ring pin (PB15) for paddle input
@@ -300,6 +307,11 @@ void CW_ConfigurePortRing(bool enable)
         GPIO_SetBit(&GPIOB->DATA, GPIOB_PIN_BK1080); // Set PB15 high
         GPIOB->DIR |= GPIO_DIR_15_BITS_OUTPUT; // Then switch to output
     }
+#ifdef ENABLE_KEYER_DEBUG
+    char buf[50];
+    sprintf_(buf, "Port Ring %s\r\n", enable ? "Enabled" : "Disabled");
+    UART_Send(buf, strlen(buf));
+#endif
 }
 
 void CW_ConfigureADCforCECPaddles(bool enable)
@@ -317,13 +329,19 @@ void CW_ConfigureADCforCECPaddles(bool enable)
     } else {
 
         gCW_KeyerUsesPTT = false;
-        // return PA8 to UART1 RX function with DMA
-        PORTCON_PORTA_SEL1 = (PORTCON_PORTA_SEL1 & ~PORTCON_PORTA_SEL1_A8_MASK) | PORTCON_PORTA_SEL1_A8_BITS_UART1_RX;
-    
+
+        // return PA8 to UART
+        CW_ConfigurePortGround(false);
+
         // return PTT to GPIO input
         GPIOC->DIR &= ~GPIO_DIR_5_MASK; // INPUT
         PORTCON_PORTC_IE |= PORTCON_PORTC_IE_C5_BITS_ENABLE; // Enable input buffer
     }
+#ifdef ENABLE_KEYER_DEBUG
+    char buf[50];
+    sprintf_(buf, "ADC for CEC %s\r\n", enable ? "Enabled" : "Disabled");
+    UART_Send(buf, strlen(buf));
+#endif
 }
 
 // Reset sampled key states (used from keyer init)

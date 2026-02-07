@@ -66,6 +66,7 @@ typedef enum {
 
 #ifdef ENABLE_CW_MODULATOR
 	MODULATION_CW,
+	MODULATION_CPO,
 #endif
 
 #ifdef ENABLE_BYP_RAW_DEMODULATORS

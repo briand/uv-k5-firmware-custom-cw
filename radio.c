@@ -56,6 +56,7 @@ const char gModulationStr[MODULATION_UKNOWN][4] = {
 
 #ifdef ENABLE_CW_MODULATOR
 	[MODULATION_CW]="CW",
+	[MODULATION_CPO]="CPO",
 #endif
 
 #ifdef ENABLE_BYP_RAW_DEMODULATORS
@@ -410,7 +411,7 @@ void RADIO_ConfigureSquelchAndOutputPower(VFO_Info_t *pInfo)
 		
 	if (gEeprom.SQUELCH_LEVEL == 0
 	#ifdef ENABLE_CW_MODULATOR
-		|| pInfo->Modulation == MODULATION_CW   // briand - TOTO revisit squelch
+		|| pInfo->Modulation == MODULATION_CW   // briand - TODO revisit squelch
 	#endif
 	)
 	{	// squelch == 0 (off)
@@ -883,6 +884,10 @@ void RADIO_SetModulation(ModulationMode_t modulation)
 			mod = BK4819_AF_AM;
 			break;
 #ifdef ENABLE_CW_MODULATOR
+		case MODULATION_CPO:
+			gMonitor = true;
+			mod = BK4819_AF_MUTE;
+			break;
 		case MODULATION_CW:
 			gMonitor = true;
 			[[fallthrough]];

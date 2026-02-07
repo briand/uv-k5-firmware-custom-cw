@@ -761,7 +761,7 @@ void UI_DisplayMain(void)
 #endif
 
 #ifdef ENABLE_CW_MODULATOR
-		if ((gCW_TxDisplayHoldoff_10ms > 0) && gCW_TX_Display[0] != 0)  // gCurrentFunction == FUNCTION_TRANSMIT || gCurrentVfo->Modulation == MODULATION_CW &&
+		if ((gCW_TxDisplayHoldoff_10ms > 0) && gCW_TX_Display[0] != 0)
 		{	// show decoded CW characters
 			center_line = CENTER_LINE_CW_DECODE;
 			DrawCWDecodeBar();

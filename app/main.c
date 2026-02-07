@@ -30,6 +30,9 @@
 #ifdef ENABLE_SPECTRUM
 #include "app/spectrum.h"
 #endif
+#ifdef ENABLE_CODE_PRACTICE
+#include "app/cpo.h"
+#endif
 
 #include "audio.h"
 #include "board.h"
@@ -210,11 +213,15 @@ static void processFKeyFunction(const KEY_Code_t Key, const bool beep)
 #endif
 			}
 			else {
+
 #ifdef ENABLE_VOX
 				toggle_chan_scanlist();
 #endif
 			}
-
+#if defined(ENABLE_CODE_PRACTICE) && !defined(ENABLE_NOAA) && !defined(ENABLE_SPECTRUM)
+				CPO_Enter();
+				gRequestDisplayScreen = DISPLAY_CPO;
+#endif
 			break;
 
 		case KEY_6:

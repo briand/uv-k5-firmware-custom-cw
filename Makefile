@@ -41,6 +41,7 @@ ENABLE_BYP_RAW_DEMODULATORS   ?= 0
 ENABLE_BLMIN_TMP_OFF          ?= 0
 ENABLE_SCAN_RANGES            ?= 1
 ENABLE_CW_MODULATOR           ?= 1
+ENABLE_CODE_PRACTICE          ?= 1
 ENABLE_MILLIS                 ?= 1
 ENABLE_EXTRA_FILTER           ?= 1
 
@@ -72,6 +73,12 @@ endif
 ifeq ($(ENABLE_CW_MODULATOR),1)
 	# Auto-enable extra filter when CW is enabled
 	ENABLE_EXTRA_FILTER := 1
+endif
+
+ifeq ($(ENABLE_CODE_PRACTICE),1)
+ifeq ($(ENABLE_CW_MODULATOR),0)
+$(error ENABLE_CODE_PRACTICE requires ENABLE_CW_MODULATOR)
+endif
 endif
 
 ifeq ($(ENABLE_CW_MODULATOR),1)
@@ -126,6 +133,9 @@ ifeq ($(ENABLE_CW_MODULATOR),1)
     OBJS += app/cwkeyer.o
     OBJS += app/cwhardware.o
     OBJS += app/cwmacro.o
+endif
+ifeq ($(ENABLE_CODE_PRACTICE),1)
+	OBJS += app/cpo.o
 endif
 ifeq ($(ENABLE_MILLIS),1)
 	OBJS += driver/timer.o
@@ -186,6 +196,9 @@ endif
 OBJS += ui/main.o
 OBJS += ui/menu.o
 OBJS += ui/scanner.o
+ifeq ($(ENABLE_CODE_PRACTICE),1)
+	OBJS += ui/cpo.o
+endif
 OBJS += ui/status.o
 OBJS += ui/ui.o
 OBJS += ui/welcome.o
@@ -387,6 +400,9 @@ ifeq ($(ENABLE_SCAN_RANGES),1)
 endif
 ifeq ($(ENABLE_CW_MODULATOR),1)
 	CFLAGS  += -DENABLE_CW_MODULATOR
+endif
+ifeq ($(ENABLE_CODE_PRACTICE),1)
+	CFLAGS  += -DENABLE_CODE_PRACTICE
 endif
 ifeq ($(ENABLE_MILLIS),1)
 	CFLAGS  += -DENABLE_MILLIS

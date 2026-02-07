@@ -75,6 +75,9 @@
 #include "app/cwkeyer.h"
 #include "app/cwmacro.h"
 #endif
+#ifdef ENABLE_CODE_PRACTICE
+#include "app/cpo.h"
+#endif
 
 
 #include "driver/uart.h"
@@ -89,6 +92,10 @@ void (*ProcessKeysFunctions[])(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld) 
 	[DISPLAY_MAIN] = &MAIN_ProcessKeys,
 	[DISPLAY_MENU] = &MENU_ProcessKeys,
 	[DISPLAY_SCANNER] = &SCANNER_ProcessKeys,
+
+#ifdef ENABLE_CODE_PRACTICE
+	[DISPLAY_CPO] = &CPO_ProcessKeys,
+#endif
 
 #ifdef ENABLE_FMRADIO
 	[DISPLAY_FM] = &FM_ProcessKeys,
@@ -845,7 +852,11 @@ void APP_Update(void)
 
 #ifdef ENABLE_CW_MODULATOR
 
-	if (gTxVfo->Modulation == MODULATION_CW)
+	if (gTxVfo->Modulation == MODULATION_CW
+#ifdef ENABLE_CODE_PRACTICE
+		|| gCpoActive
+#endif
+		)
 	{
 		CW_Action_t action;
 		if (gCW_PlaybackActive)
@@ -854,7 +865,11 @@ void APP_Update(void)
 			action = CW_HandleState();
 		
 		// Don't transmit RF if we're recording a macro, reading ADC, or breakin disabled
-		if (gCW_Recording || gCW_AdcReadActive || !gEeprom.CW_BREAKIN_ENABLE) {
+		if (gCW_Recording || gCW_AdcReadActive || !gEeprom.CW_BREAKIN_ENABLE
+#ifdef ENABLE_CODE_PRACTICE
+			|| gCpoActive
+#endif
+			) {
 			switch(action)
 			{
 				case CW_ACTION_CARRIER_ON:
@@ -870,7 +885,12 @@ void APP_Update(void)
 				case CW_ACTION_CARRIER_OFF:
 					// Set TONE1 to 0 Hz - this works better than gain to disable sidetone
 					BK4819_SetScrambleFrequencyControlWord(0);
-					RADIO_SetModulation(gRxVfo->Modulation);  // back to RX audio path
+					#ifdef ENABLE_CODE_PRACTICE
+					if (gCpoActive)
+						BK4819_SetAF(BK4819_AF_MUTE);
+					else
+					#endif
+						RADIO_SetModulation(gRxVfo->Modulation);  // back to RX audio path
 					gCW_TxDisplayHoldoff_10ms = 100; // leave the centerline decoder on for a second
 				break;
 				
@@ -1267,6 +1287,12 @@ void APP_TimeSlice10ms(void)
 	}
 	// Update playback indicator
 	CW_PlaybackIndicatorDeadline();
+#endif
+
+#ifdef ENABLE_CODE_PRACTICE
+	if (gCpoActive) {
+		CPO_Tick();
+	}
 #endif
 
 	if (gReducedService)
@@ -1699,6 +1725,15 @@ static void ALARM_Off(void)
 
 static void ProcessKey(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 {
+#ifdef ENABLE_CODE_PRACTICE
+	if (gCpoActive) {
+		if (Key == KEY_EXIT && bKeyPressed && !bKeyHeld) {
+			CPO_Exit();
+			gRequestDisplayScreen = DISPLAY_MAIN;
+		}
+		return;
+	}
+#endif
 	if (Key == KEY_EXIT && !BACKLIGHT_IsOn() && gEeprom.BACKLIGHT_TIME > 0)
 	{	// just turn the light on for now so the user can see what's what
 		BACKLIGHT_TurnOn();

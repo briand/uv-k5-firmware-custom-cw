@@ -19,6 +19,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "settings.h"
 
 #define CW_ADC_20K_MIN 100  // anything less is not a valid target (would have to be an open circuit)
 #define CW_ADC_10K_MIN 200 // anything less is not a valid target (wouldn't be able to tell them apart)

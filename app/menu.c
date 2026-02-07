@@ -923,7 +923,7 @@ void MENU_AcceptSetting(void)
 				gCwKeyInputCheckFailed = false;
 				gEeprom.CW_KEY_INPUT_MENU = gSubMenuSelection;
 				gEeprom.CW_KEY_INPUT = new_mode;
-				CW_KeyerReconfigure(gTxVfo->Modulation == MODULATION_CW);
+				CW_KeyerReconfigure(gTxVfo->Modulation == MODULATION_CW || gTxVfo->Modulation == MODULATION_CPO);
 			}
 			break;
 
@@ -935,7 +935,7 @@ void MENU_AcceptSetting(void)
 			// If gSubMenuSelection == 1, user selected "record new"
 			if (gSubMenuSelection == 1) {
 				// Check if we're in CW mode
-				if (gTxVfo->Modulation != MODULATION_CW) {
+				if (gTxVfo->Modulation != MODULATION_CW && gTxVfo->Modulation != MODULATION_CPO) {
 					// Not in CW mode - can't use keyer for recording
 					gCwNoKeyerError = true;
 					gRequestDisplayScreen = DISPLAY_MENU;
@@ -949,7 +949,7 @@ void MENU_AcceptSetting(void)
 			// If gSubMenuSelection == 2, user selected "play", 3 is "repeat"
 			else if (gSubMenuSelection == 2 || gSubMenuSelection == 3) {
 				// Check if we're in CW mode (playback requires CW mode active)
-				if (gTxVfo->Modulation != MODULATION_CW) {
+				if (gTxVfo->Modulation != MODULATION_CW && gTxVfo->Modulation != MODULATION_CPO) {
 					gCwNoKeyerError = true;
 					gSubMenuSelection = 0; // Reset selection to "show"
 					gRequestDisplayScreen = DISPLAY_MENU;
@@ -1783,7 +1783,7 @@ static void MENU_Key_MENU(const bool bKeyPressed, const bool bKeyHeld)
 			    && gSubMenuSelection == 1)
 			{
 				// User is confirming "record new?" - check if we're in CW mode
-				if (gTxVfo->Modulation != MODULATION_CW) {
+				if (gTxVfo->Modulation != MODULATION_CW && gTxVfo->Modulation != MODULATION_CPO) {
 					// Not in CW mode - can't use keyer for recording
 					gCwNoKeyerError = true;
 					gFlagAcceptSetting = false;  // Don't accept the setting

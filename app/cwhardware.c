@@ -130,6 +130,7 @@ uint16_t CW_ReadCH3()
     return ADC_GetValue(ADC_CH3);
 }
 
+
 static void CW_ReadADCkeys(bool *tip_out, bool *ring_out)
 {
     // Take baseline ADC sample with timing
@@ -174,7 +175,7 @@ static void CW_ReadADCkeys(bool *tip_out, bool *ring_out)
 
 // Read raw paddle inputs for a specific mode
 // Returns true if mode is valid, false otherwise
-bool CW_ReadKeysForMode(uint8_t mode, bool *dit_out, bool *dah_out)
+bool CW_ReadKeysForMode(CW_KeyInputType_t mode, bool *dit_out, bool *dah_out)
 {
     // Check if keyer is disabled (handkey modes)
     if (mode & CW_KEY_FLAG_NO_KEYER) {

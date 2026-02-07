@@ -57,7 +57,7 @@ enum CW_KeyInputType_t {
 };
 typedef enum CW_KeyInputType_t CW_KeyInputType_t;
 
-	// CW key input selection (0-7) mapped to bitmap value - used for menu and eeprom
+	// CW key input selection (0-9) mapped to bitmap value - used for menu and eeprom
 	static const uint8_t CW_KEY_INPUT_menu_to_bitmap[10] = {
 		0x08, // 0: HANDKEY
 		0x18, // 1: HANDKEY_PORT

@@ -286,16 +286,18 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
         except Exception as e:
             LOG.error(f"Error adding key input setting: {e}")
 
-        # CW Operating Mode (beta3)
+        # CW Operating Mode (beta3) - Simplified to match firmware menu (OFF/ON)
         try:
-            oper_mode_opts = ["Break-in", "CPO + RX", "CPO + Mute"]
-            oper_mode_idx = self._get_cw_oper_mode()
+            oper_mode_opts = ["OFF (Normal CW)", "ON (CPO Mode)"]
+            # Firmware menu shows as binary: 0=off, 1+=on
+            oper_mode_value = self._get_cw_oper_mode()
+            oper_mode_idx = 1 if oper_mode_value > 0 else 0
             cw_oper = RadioSetting(
                 "cw.oper_mode",
-                "CW Operating Mode",
+                "CPO Mode (Practice Keyer)",
                 RadioSettingValueList(oper_mode_opts, oper_mode_opts[oper_mode_idx])
             )
-            cw_oper.set_doc("Break-in: instant TX on key. CPO: carrier on continuously")
+            cw_oper.set_doc("OFF: Normal CW (instant TX). ON: CPO practice mode (sidetone only, no TX)")
             cw.append(cw_oper)
         except Exception as e:
             LOG.error(f"Error adding oper mode setting: {e}")
@@ -391,9 +393,10 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
                         self._set_cw_key_input_idx(idx)
                         LOG.debug(f"Set key input to {setting.value}")
                     elif name == "cw.oper_mode":
-                        idx = ["Break-in", "CPO + RX", "CPO + Mute"].index(str(setting.value))
-                        self._set_cw_oper_mode(idx)
-                        LOG.debug(f"Set CW oper mode to {setting.value}")
+                        # Match firmware menu behavior: OFF=0, ON=1
+                        idx = ["OFF (Normal CW)", "ON (CPO Mode)"].index(str(setting.value))
+                        self._set_cw_oper_mode(idx)  # 0=BREAK_IN, 1=CPO_RX
+                        LOG.debug(f"Set CPO mode to {setting.value}")
                     elif name == "cw.repeat_delay":
                         self._set_cw_repeat_delay(int(setting.value))
                         LOG.debug(f"Set CW repeat delay to {setting.value}")

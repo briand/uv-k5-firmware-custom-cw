@@ -36,7 +36,7 @@ typedef struct {
 } CW_Input;
 
 // Read raw inputs for a specific mode
-bool CW_ReadKeysForMode(CW_KeyInputType_t mode, bool *dit_out, bool *dah_out);
+bool CW_ReadKeysForMode(uint8_t mode, bool *dit_out, bool *dah_out);
 
 // Read normalized paddle inputs (computes edges)
 void CW_ReadKeys(CW_Input *in);

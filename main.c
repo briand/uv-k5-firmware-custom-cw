@@ -161,6 +161,7 @@ void Main(void)
 	// Check CW keyer inputs at startup - if stuck, fall back to handkey mode
 	if (!CW_CheckKeyerInputs(gEeprom.CW_KEY_INPUT)) {
 		gEeprom.CW_KEY_INPUT = CW_KEY_INPUT_HANDKEY;
+		gEeprom.CW_KEY_INPUT_MENU = 0;
 		gRequestSaveSettings = true;
 		CW_KeyerReconfigure(true);  // Force keyer to reinitialize with handkey mode
 

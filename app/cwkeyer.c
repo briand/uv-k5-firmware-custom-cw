@@ -42,6 +42,8 @@
 #include "driver/backlight.h"
 #include "ui/welcome.h"
 
+#include "external/printf/printf.h"
+
 // Debug logging control - set to 1 to enable UART debug output
 #define CW_KEYER_DEBUG 0
 
@@ -137,7 +139,7 @@ void CW_KeyerDeinit()
     if(gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_PORT_RING)
         CW_ConfigurePortRing(false);
 
-    if(gEeprom.CW_KEY_INPUT & CW_KEY_INPUT_ADC)
+    if(gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_ADC)
     {
         CW_ConfigureADCforCECPaddles(false);
     }
@@ -156,19 +158,21 @@ static void CW_KeyerInit()
     // Configure port pins based on bit flags
     bool uses_port_ground = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_PORT_GROUND);
     bool uses_port_ring = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_PORT_RING);
-    bool uses_adc = (gEeprom.CW_KEY_INPUT & CW_KEY_INPUT_ADC);
+    bool uses_adc = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_ADC);
 #if CW_KEYER_DEBUG
     bool is_handkey = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_NO_KEYER);
-    bool uses_buttons = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_BUTTONS);
+    bool uses_button = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_SIDE1);
     char buf[120];
-    sprintf_(buf, "CW_Init: mode=0x%02X handkey=%d btns=%d pG=%d pR=%d rev=%d\r\n",
-             gEeprom.CW_KEY_INPUT, is_handkey, uses_buttons, uses_port_ground, uses_port_ring, (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_REVERSED));
+    sprintf_(buf, "CW_Init: mode=0x%02X handkey=%d side=%d pG=%d pR=%d rev=%d\r\n",
+             gEeprom.CW_KEY_INPUT, is_handkey, uses_button, uses_port_ground, uses_port_ring, (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_REVERSED));
     UART_Send(buf, strlen(buf));
 #endif
 
-    CW_ConfigurePortGround(uses_port_ground);
     CW_ConfigurePortRing(uses_port_ring);
     CW_ConfigureADCforCECPaddles(uses_adc);
+    // CEC false will turn off ground, so we only need to explicitly enable if not using CEC but do need port ground
+    if(!uses_adc && uses_port_ground)
+        CW_ConfigurePortGround(true);
 
     gCW_KeyerUsingSD1 = gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_SIDE1;
 
@@ -408,7 +412,7 @@ bool CW_CheckKeyerInputs(uint8_t new_mode)
     // Determine if we need to configure port pins for this mode (use bit flags)
     bool uses_port_ground = (new_mode & CW_KEY_FLAG_PORT_GROUND);
     bool uses_port_ring = (new_mode & CW_KEY_FLAG_PORT_RING);
-    bool uses_adc = (new_mode & CW_KEY_INPUT_ADC);
+    bool uses_adc = (new_mode & CW_KEY_FLAG_ADC);
 
     // Button-only modes don't need validation (no port pins to check)
     if (!uses_port_ground && !uses_port_ring) {

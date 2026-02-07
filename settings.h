@@ -43,33 +43,33 @@ typedef enum POWER_OnDisplayMode_t POWER_OnDisplayMode_t;
 #define CW_KEY_FLAG_PORT_GROUND   0x10  // 0=no port ground, 1=use port ground
 #define CW_KEY_FLAG_ADC		  	  0x20  // 0=no ADC keyer, 1=use ADC (CEC cable) input
 
-enum CW_KeyInputType_t {
-	CW_KEY_INPUT_HANDKEY          = 0x08,  // handkey only (disable keyer)
-	CW_KEY_INPUT_HANDKEY_PORT     = 0x18,  // handkey + port ground (no keyer)
-	CW_KEY_INPUT_BUTTONS_NORMAL   = 0x04,  // buttons (PTT + SIDE1)
-	CW_KEY_INPUT_BUTTONS_REVERSED = 0x05,  // buttons + reversed
-	CW_KEY_INPUT_PORT_NORMAL      = 0x12,  // port ring + port ground
-	CW_KEY_INPUT_PORT_REVERSED    = 0x13,  // port ring + port ground + reversed
-	CW_KEY_INPUT_BOTH_NORMAL      = 0x16,  // buttons + port ring + port ground
-	CW_KEY_INPUT_BOTH_REVERSED    = 0x17,  // buttons + port ring + port ground + reversed
-	CW_KEY_INPUT_ADC              = 0x20,  // ADC (CEC cable) input -- can't work with PTT
-	CW_KEY_INPUT_ADC_REVERSED     = 0x21   // ADC (CEC cable) input + reversed
-};
-typedef enum CW_KeyInputType_t CW_KeyInputType_t;
+// for reference, from ui/menu.c:
+	// "PTT\nHandKey",
+	// "PTT+TIP\nHandKey",
+	// "PTT dah\nSD1 dit",
+	// "PTT dit\nSD1 dah",
+	// "PTT+TIP\ndah\nRING\ndit",
+	// "PTT+TIP\ndit\nRING\ndah",
+	// "PTT+TIP\ndah\nSD1+RING\ndit",
+	// "PTT+TIP\ndit\nSD1+RING\ndah",
+	// "CEC\nCable",
+	// "CEC\nCable\nReversed"
 
-	// CW key input selection (0-9) mapped to bitmap value - used for menu and eeprom
-	static const uint8_t CW_KEY_INPUT_menu_to_bitmap[10] = {
-		0x08, // 0: HANDKEY
-		0x18, // 1: HANDKEY_PORT
-		0x04, // 2: BUTTONS_NORMAL
-		0x05, // 3: BUTTONS_REVERSED
-		0x12, // 4: PORT_NORMAL
-		0x13, // 5: PORT_REVERSED
-		0x16, // 6: BOTH_NORMAL
-		0x17, // 7: BOTH_REVERSED
-		0x20, // 8: (CEC) CW_KEY_INPUT_ADC
-		0x21  // 9: (CEC) CW_KEY_INPUT_ADC_REVERSED
-	};
+// CW key input selection (0-9) mapped to bitmap value - used for menu and eeprom
+static const uint8_t CW_KEY_INPUT_menu_to_bitmap[10] = {
+	0x08, // menu item 0: CW_KEY_FLAG_NO_KEYER - handkey only
+	0x18, // menu item 1: CW_KEY_FLAG_NO_KEYER | CW_KEY_FLAG_PORT_GROUND - handkey + port ground
+	0x04, // menu item 2: CW_KEY_FLAG_SIDE1 - buttons (PTT + SIDE1)
+	0x05, // menu item 3: CW_KEY_FLAG_SIDE1 | CW_KEY_FLAG_REVERSED - buttons + reversed
+	0x12, // menu item 4: CW_KEY_FLAG_PORT_RING | CW_KEY_FLAG_PORT_GROUND - port ring + port ground
+	0x13, // menu item 5: CW_KEY_FLAG_PORT_RING | CW_KEY_FLAG_PORT_GROUND | CW_KEY_FLAG_REVERSED - port ring + port ground + reversed
+	0x16, // menu item 6: CW_KEY_FLAG_SIDE1 | CW_KEY_FLAG_PORT_RING | CW_KEY_FLAG_PORT_GROUND - buttons + port ring + port ground
+	0x17, // menu item 7: CW_KEY_FLAG_SIDE1 | CW_KEY_FLAG_PORT_RING | CW_KEY_FLAG_PORT_GROUND | CW_KEY_FLAG_REVERSED - buttons + port ring + port ground + reversed
+	0x20, // menu item 8: CW_KEY_FLAG_ADC - ADC (CEC cable) input -- this can't work with PTT
+	0x21  // menu item 9: CW_KEY_FLAG_ADC | CW_KEY_FLAG_REVERSED - ADC (CEC cable) input + reversed
+};
+
+#define CW_KEY_INPUT_HANDKEY 0x08 // shortcut for the default no-keyer mode (menu item 0)
 
 enum CW_IambicMode_t {
 	CW_IAMBIC_MODE_A = 0,
@@ -313,7 +313,7 @@ typedef struct {
 	uint8_t               CW_SIDETONE_LEVEL;	// CW sidetone level: 0=off, 1-6 scaled volume levels
 	CW_IambicMode_t       CW_KEYER_MODE;		// Iambic A or B (keyer disabled when CW_KEY_INPUT == HANDKEY)
 	uint8_t               CW_KEY_WPM;			// actual WPM
-	CW_KeyInputType_t     CW_KEY_INPUT;			// Bitmapped button/port input selections for CW keyer
+	uint8_t               CW_KEY_INPUT;			// Bitmapped button/port input selections for CW keyer
 	uint16_t			  CW_KEY_INPUT_MENU;	// index of the chosen input method in the menu
 	bool     			  CW_BREAKIN_ENABLE;    // TX on key
 	uint8_t               CW_MESSAGE_REPEAT_DELAY;  // Repeat delay in seconds

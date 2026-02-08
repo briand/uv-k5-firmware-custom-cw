@@ -1,13 +1,15 @@
-NR7Y Beta2 Firmware README
+NR7Y CW firmware README
 
-**MOST IMPORTANT**
-This firmware only works on "V1" firmware. How do you know? Well, you kinda don't. If you bought your radio early last year, it's V1. If you bought it late last year, it could be V2. If you bought it in 2026, it could be V3! Most (all?) V3 radios are marked as such on the label under the battery.
-
-If the flashing process doesn't work, you know you don't have a V1. If the attempt messes up your radio, there are recovery steps listed online. Sorry about that. I will work on a V2/V3 compatible version of the firmware soon. Note: Bootloader version is not the same as radio hardware version; it's ok if you see "bootloader version 2.xx" during flashing.
+# Beta3
+> [!IMPORTANT]
+> This firmware only works on "V1" firmware. How do you know? Well, you kinda don't. If you bought your radio early last year, it's V1. If you bought it late last year, it could be V2. If you bought it in 2026, it could be V3! Most (all?) V3 radios are marked as such on the label under the battery.
+> 
+> If the flashing process doesn't work, you know you don't have a V1. You should still be able to flash back to the original factory firmware; online sources have it available. I will work on a V2/V3 compatible version of the firmware soon. Note: Bootloader version is not the same as radio hardware version; it's ok if you see "bootloader version 2.xx" during flashing.
 
 Upload using your favorite Quansheng flash tool. I use k5tool (https://github.com/qrp73/K5TOOL). This link also has recovery information on the landing README page, if needed. The web-based https://egzumer.github.io/uvtools/ works well too, but Chrome-only.
 
-After flashing, I *strongly advise* resetting the eeprom to ensure there are no lingering settings from other firmware versions. 
+> [!NOTE]
+> After flashing, I *strongly advise* resetting the eeprom to ensure there are no lingering settings from other firmware versions. 
  1. Hold down PTT and Side Button 1 while turning the radio on.
  2. Release buttons, menu will be automatically presented.
  3. Go up to Reset and pick ALL. 
@@ -89,7 +91,7 @@ Configures how the CW input signals are connected and interpreted. This is the m
 
 #### CWmsg1 / CWmsg2 / CWmsg3 / CWmsg4 - CW Message Recording and Playback
 
-Messages 1-4 may store up to 40 characters for playback (not including spaces).
+Messages 1-4 may store up to 46 characters for playback (not including spaces).
 
 Messages start empty - enter the menu and use arrows to change macro option:
 - record new? - Select with 'menu' button to begin recording

@@ -179,11 +179,9 @@ void DrawCWDecodeBar(void)
 	memset(p_line, 0, LCD_WIDTH);
 	
 	// Get the last 20 characters from display buffer
-	const unsigned int len = strlen(gCW_TX_Display);
-	const unsigned int idx = (len > 20) ? len - 20 : 0;
+	CW_GetTxDisplayTail(String, sizeof(String));
 
 	// Print the text shifted right so glyph can be placed at x=0; print text first
-	sprintf(String, "%s", gCW_TX_Display + idx);
 	UI_PrintStringSmallNormal(String, 10, 0, line);
 
 	// Draw glyph after text so it can't be clobbered (drawn independently of DecodeBar)

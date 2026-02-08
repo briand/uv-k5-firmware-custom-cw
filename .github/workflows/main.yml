@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v4
         
       - name: safe.directory
-        run:  git config --global --add safe.directory /__w/uv-k5-firmware-custom/uv-k5-firmware-custom        
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Make
         run:  make
       - name: size
@@ -37,14 +37,18 @@ jobs:
           name: firmware
           path: firmware*.bin
 
+      - name: Set release tag name
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: echo "RELEASE_TAG=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+
       - name: Upload binaries to release
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: firmware.packed.bin
-          asset_name: egzumer_${{ github.ref_name }}.packed.bin
+          asset_name: nr7y_${{ env.RELEASE_TAG }}.packed.bin
           tag: ${{ github.ref }}
           overwrite: true
-          release_name: release ${{ github.ref_name }}     
-   
+          release_name: release ${{ env.RELEASE_TAG }}
+

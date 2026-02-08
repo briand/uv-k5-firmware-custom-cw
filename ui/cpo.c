@@ -30,14 +30,12 @@
 void UI_DisplayCPO(void)
 {
 	char String[24];
-	const unsigned int len = strlen(gCW_TX_Display);
-	const unsigned int idx = (len > 20) ? len - 20 : 0;
+	const uint8_t tx_len = CW_GetTxDisplayTail(String, 17);
 
 	UI_DisplayClear();
 	UI_PrintStringSmallNormal("Code Practice", 0, 127, 0);
-	if (len > 0) {
-		sprintf_(String, "%s", gCW_TX_Display + idx);
-		UI_PrintString(String, 0, 127, 3, 8);
+	if (tx_len > 0) {
+		UI_PrintString(String, 0, 0, 3, 8);
 	}
 	sprintf_(String, "%u WPM", gEeprom.CW_KEY_WPM);
 	UI_PrintStringSmallNormal(String, 2, 0, 6);	

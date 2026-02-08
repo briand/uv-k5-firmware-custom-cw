@@ -45,7 +45,7 @@
 #include "external/printf/printf.h"
 
 // Debug logging control - set to 1 to enable UART debug output
-#define CW_KEYER_DEBUG 1
+#define CW_KEYER_DEBUG 0
 
 // Timer scale: 10 kHz tick → 100 µs per tick
 // 16-bit counter rolls over at 6553 ms

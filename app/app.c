@@ -577,8 +577,8 @@ static void CheckRadioInterrupts(void)
 		return;
 
 	#ifdef ENABLE_CW_MODULATOR
-		if (gCurrentFunction == FUNCTION_TRANSMIT && gTxVfo->Modulation == MODULATION_CW)
-			return;  // no interrupts during CW TX
+		if (gCW_CpoActive || ( gCurrentFunction == FUNCTION_TRANSMIT && gTxVfo->Modulation == MODULATION_CW))
+			return;  // no interrupts during CW TX or CPO app
 	#endif
 
 	while (BK4819_ReadRegister(BK4819_REG_0C) & 1u) { // BK chip interrupt request
@@ -854,7 +854,7 @@ void APP_Update(void)
 
 	if (gTxVfo->Modulation == MODULATION_CW
 #ifdef ENABLE_CODE_PRACTICE
-		|| gCpoActive
+		|| gCW_CpoActive
 #endif
 		)
 	{
@@ -867,7 +867,7 @@ void APP_Update(void)
 		// Don't transmit RF if we're recording a macro, reading ADC, or breakin disabled
 		if (gCW_Recording || gCW_AdcReadActive || !gEeprom.CW_BREAKIN_ENABLE
 #ifdef ENABLE_CODE_PRACTICE
-			|| gCpoActive
+			|| gCW_CpoActive
 #endif
 			) {
 			switch(action)
@@ -880,18 +880,28 @@ void APP_Update(void)
 						(gEeprom.CW_SIDETONE_LEVEL << BK4819_REG_70_SHIFT_TONE1_TUNING_GAIN));
 					// Set local AF sidetone freq in Hz
 					BK4819_SetScrambleFrequencyControlWord(gEeprom.CW_TONE_FREQUENCY * 10);
-					gCW_TxDisplayHoldoff_10ms = 100; // start the centerline decoder
+					#ifdef ENABLE_FLASHLIGHT
+					if (gCW_FlashlightSending) {
+						GPIO_SetBit(&GPIOC->DATA, GPIOC_PIN_FLASHLIGHT);
+					}
+					#endif
+					gCW_TxDisplayHoldoff_10ms = 200; // start the centerline decoder
 				break;
 				case CW_ACTION_CARRIER_OFF:
 					// Set TONE1 to 0 Hz - this works better than gain to disable sidetone
 					BK4819_SetScrambleFrequencyControlWord(0);
+					#ifdef ENABLE_FLASHLIGHT
+					if (gCW_FlashlightSending) {
+						GPIO_ClearBit(&GPIOC->DATA, GPIOC_PIN_FLASHLIGHT);
+					}
+					#endif
 					#ifdef ENABLE_CODE_PRACTICE
-					if (gCpoActive)
+					if (gCW_CpoActive)
 						BK4819_SetAF(BK4819_AF_MUTE);
 					else
 					#endif
 						RADIO_SetModulation(gRxVfo->Modulation);  // back to RX audio path
-					gCW_TxDisplayHoldoff_10ms = 100; // leave the centerline decoder on for a second
+					gCW_TxDisplayHoldoff_10ms = 200; // leave the centerline decoder on for a second
 				break;
 				
 				default:
@@ -1290,7 +1300,7 @@ void APP_TimeSlice10ms(void)
 #endif
 
 #ifdef ENABLE_CODE_PRACTICE
-	if (gCpoActive) {
+	if (gCW_CpoActive) {
 		CPO_Tick();
 	}
 #endif
@@ -1594,7 +1604,11 @@ void APP_TimeSlice500ms(void)
 #endif
 	) {
 		if (gEeprom.AUTO_KEYPAD_LOCK && gKeyLockCountdown > 0 && !gDTMF_InputMode
-			&& gScreenToDisplay != DISPLAY_MENU && --gKeyLockCountdown == 0)
+			&& gScreenToDisplay != DISPLAY_MENU
+#ifdef ENABLE_CODE_PRACTICE
+			&& !gCW_CpoActive
+#endif
+			&& --gKeyLockCountdown == 0)
 		{
 			gEeprom.KEY_LOCK = true;     // lock the keyboard
 			gUpdateStatus = true;            // lock symbol needs showing
@@ -1726,11 +1740,13 @@ static void ALARM_Off(void)
 static void ProcessKey(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 {
 #ifdef ENABLE_CODE_PRACTICE
-	if (gCpoActive) {
-		if (Key == KEY_EXIT && bKeyPressed && !bKeyHeld) {
+	if (gCW_CpoActive) {
+		if (Key == KEY_EXIT) {
 			CPO_Exit();
 			gRequestDisplayScreen = DISPLAY_MAIN;
+			return;
 		}
+		CPO_ProcessKeys(Key, bKeyPressed, bKeyHeld);
 		return;
 	}
 #endif

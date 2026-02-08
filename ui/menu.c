@@ -155,9 +155,9 @@ const t_menu_item MenuList[] =
 	{"BatCal", VOICE_ID_INVALID,                       MENU_BATCAL        }, // battery voltage calibration
 	{"BatTyp", VOICE_ID_INVALID,                       MENU_BATTYP        }, // battery type 1600/2200mAh
 	#ifdef ENABLE_CW_MODULATOR
-	{"CWcrd", VOICE_ID_INVALID,                       MENU_CW_CRD        },
-	{"CWclo", VOICE_ID_INVALID,                       MENU_CW_CLO        },
-	{"CWchi", VOICE_ID_INVALID,                       MENU_CW_CHI        },
+	{"CWcrd", VOICE_ID_INVALID,                        MENU_CW_CRD        },
+	{"CWcLo", VOICE_ID_INVALID,                       MENU_CW_ADC_LO_20K     },
+	{"CWcHi", VOICE_ID_INVALID,                       MENU_CW_ADC_HI_10K     },
 	#endif
 	{"Reset",  VOICE_ID_INITIALISATION,                MENU_RESET         }, // might be better to move this to the hidden menu items ?
 
@@ -986,11 +986,11 @@ void UI_DisplayMenu(void)
 			}
 			break;
 
-		case MENU_CW_CLO:
+		case MENU_CW_ADC_LO_20K:
 			sprintf(String, "%u", gSubMenuSelection);
 			break;
 
-		case MENU_CW_CHI:
+		case MENU_CW_ADC_HI_10K:
 			sprintf(String, "%u", gSubMenuSelection);
 			break;
 

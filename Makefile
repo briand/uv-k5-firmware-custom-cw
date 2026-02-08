@@ -55,6 +55,7 @@ ENABLE_CLANG                  ?= 0
 ENABLE_SWD                    ?= 0
 ENABLE_OVERLAY                ?= 0
 ENABLE_LTO                    ?= 1
+ENABLE_MAP                    ?= 0
 
 #############################################################
 
@@ -428,6 +429,10 @@ endif
 
 LDFLAGS =
 LDFLAGS += -z noexecstack -mcpu=cortex-m0 -nostartfiles -Wl,-T,firmware.ld -Wl,--gc-sections
+
+ifeq ($(ENABLE_MAP),1)
+LDFLAGS += -Wl,-Map,$(TARGET).map
+endif
 
 # Use newlib-nano instead of newlib
 LDFLAGS += --specs=nano.specs

@@ -17,9 +17,13 @@
 #include <string.h>
 
 #include "app/cwmacro.h"
+#ifdef ENABLE_FLASHLIGHT
+#include "app/cwkeyer.h"
+#endif
 #include "driver/st7565.h"
 #include "external/printf/printf.h"
 #include "settings.h"
+#include "app/cpo.h"
 #include "ui/cpo.h"
 #include "ui/helper.h"
 
@@ -30,12 +34,20 @@ void UI_DisplayCPO(void)
 	const unsigned int idx = (len > 20) ? len - 20 : 0;
 
 	UI_DisplayClear();
-	UI_PrintString("Code Practice", 0, 127, 0, 8);
+	UI_PrintStringSmallNormal("Code Practice", 0, 127, 0);
 	if (len > 0) {
 		sprintf_(String, "%s", gCW_TX_Display + idx);
-		UI_PrintStringSmallNormal(String, 2, 0, 3);
+		UI_PrintString(String, 0, 127, 3, 8);
 	}
 	sprintf_(String, "%u WPM", gEeprom.CW_KEY_WPM);
-	UI_PrintStringSmallNormal(String, 2, 0, 7);
+	UI_PrintStringSmallNormal(String, 2, 0, 6);	
+    if (gCW_CpoBacklightOn) {
+		UI_PrintStringSmallNormal("*", 107, 0, 6);
+	}
+#ifdef ENABLE_FLASHLIGHT
+	if (gCW_FlashlightSending) {
+		UI_PrintStringSmallNormal("^", 121, 0, 6);
+	}
+#endif
 	ST7565_BlitFullScreen();
 }

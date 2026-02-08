@@ -24,6 +24,10 @@
 #include "radio.h"
 #include "settings.h"
 #include "ui/ui.h"
+#ifdef ENABLE_FLASHLIGHT
+#include "driver/gpio.h"
+#include "bsp/dp32g030/gpio.h"
+#endif
 #ifdef ENABLE_CW_MODULATOR
 #include "app/cwkeyer.h"
 #include "app/cwmacro.h"
@@ -31,41 +35,50 @@
 
 #ifdef ENABLE_CODE_PRACTICE
 
-bool gCpoActive = false;
+bool gCW_CpoActive = false;
+bool gCW_CpoBacklightOn = false;
 static bool s_needs_redraw = false;
-static bool s_backlight_on = false;
+bool wpm_changed = false;
+static bool s_flashlight_sending = false;
 
 void CPO_Enter(void)
 {
     CW_KeyerReconfigure(true);
-	gCpoActive = true;
+	gCW_CpoActive = true;
 	s_needs_redraw = true;
-		s_backlight_on = false;
 	gRequestDisplayScreen = DISPLAY_CPO;
 	gUpdateDisplay = true;
-
 	gMonitor = false;
+    wpm_changed = false;
+    gCW_FlashlightSending = s_flashlight_sending;
+	BK4819_ToggleGpioOut(BK4819_GPIO6_PIN2_GREEN, false);
 	BK4819_SetAF(BK4819_AF_MUTE);
-	//AUDIO_AudioPathOff();
 }
 
 void CPO_Exit(void)
 {
     CW_KeyerReconfigure(false);
-	gCpoActive = false;
+#ifdef ENABLE_FLASHLIGHT
+	gCW_FlashlightSending = false;
+	GPIO_ClearBit(&GPIOC->DATA, GPIOC_PIN_FLASHLIGHT);
+#endif
+	gCW_CpoActive = false;
 	gRequestDisplayScreen = DISPLAY_MAIN;
 	gUpdateDisplay = true;
 	gUpdateStatus = true;
 	gFlagReconfigureVfos = true;  // keyer will be turned back on if we're in CW modulation
+    if( wpm_changed ) {
+        gRequestSaveSettings = true;
+    }
 }
 
 void CPO_Tick(void)
 {
-	if (!gCpoActive) {
+	if (!gCW_CpoActive) {
 		return;
 	}
 
-	if (s_backlight_on) {
+	if (gCW_CpoBacklightOn) {
 		gBacklightCountdown_500ms = 2;
 	}
 
@@ -83,6 +96,7 @@ void CPO_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 	}
 
 	switch (Key) {
+
 	case KEY_UP:
 		if (gEeprom.CW_KEY_WPM < 30) {
 			gEeprom.CW_KEY_WPM++;
@@ -90,6 +104,7 @@ void CPO_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 			CW_UpdateWPM();
 #endif
 			gUpdateDisplay = true;
+            wpm_changed = true;
 		}
 		break;
 
@@ -100,17 +115,28 @@ void CPO_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 			CW_UpdateWPM();
 #endif
 			gUpdateDisplay = true;
-		}
+            wpm_changed = true;
+        }
 		break;
 
 	case KEY_STAR:
-		s_backlight_on = !s_backlight_on;
-		if (s_backlight_on) {
+		gCW_CpoBacklightOn = !gCW_CpoBacklightOn;
+		if (gCW_CpoBacklightOn) {
 			BACKLIGHT_TurnOn();
 			gBacklightCountdown_500ms = 2;
+            gUpdateDisplay = true;
 		} else {
 			BACKLIGHT_TurnOff();
+            gUpdateDisplay = true;
 		}
+		break;
+
+	case KEY_4:
+#ifdef ENABLE_FLASHLIGHT
+		gCW_FlashlightSending = !gCW_FlashlightSending;
+        s_flashlight_sending = gCW_FlashlightSending;
+		gUpdateDisplay = true;
+#endif
 		break;
 
 	default:

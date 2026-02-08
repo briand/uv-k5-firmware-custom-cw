@@ -28,6 +28,6 @@ void CPO_Exit(void);
 void CPO_Tick(void);
 void CPO_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld);
 
-extern bool gCpoActive;
-
+extern bool gCW_CpoActive;
+extern bool gCW_CpoBacklightOn;
 #endif

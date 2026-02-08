@@ -391,8 +391,8 @@ int MENU_GetLimits(uint8_t menu_id, int32_t *pMin, int32_t *pMax)
 			break;
 
 		case MENU_CW_KEY_WPM:
-			*pMin = 13;
-			*pMax = 28;
+			*pMin = 10;
+			*pMax = 30;
 			break;
 
 		case MENU_CW_KEY_INPUT:
@@ -423,12 +423,12 @@ int MENU_GetLimits(uint8_t menu_id, int32_t *pMin, int32_t *pMax)
 			*pMax = 0;
 			break;
 
-		case MENU_CW_CLO:
+		case MENU_CW_ADC_LO_20K:
 			*pMin = CW_ADC_20K_MIN;
 			*pMax = gEeprom.CW_ADC_CABLE_10K - (CW_ADC_RANGE_LIMIT * 2);
 			break;
 
-		case MENU_CW_CHI:
+		case MENU_CW_ADC_HI_10K:
 			*pMin = CW_ADC_10K_MIN;
 			*pMax = CW_ADC_MAX;
 			break;
@@ -896,11 +896,11 @@ void MENU_AcceptSetting(void)
 			gEeprom.CW_BREAKIN_ENABLE = gSubMenuSelection;  // 0=off, 1=on
 			break;
 
-		case MENU_CW_CLO:
+		case MENU_CW_ADC_LO_20K:
 			gEeprom.CW_ADC_CABLE_20K = gSubMenuSelection;
 			break;
 
-		case MENU_CW_CHI:
+		case MENU_CW_ADC_HI_10K:
 			gEeprom.CW_ADC_CABLE_10K = gSubMenuSelection;
 			break;
 
@@ -918,13 +918,12 @@ void MENU_AcceptSetting(void)
 					gEeprom.CW_KEY_INPUT = CW_KEY_INPUT_HANDKEY; // Revert to safe default
 					gEeprom.CW_KEY_INPUT_MENU = 0;
 					gRequestDisplayScreen = DISPLAY_MENU;
-					return;  // Don't accept the new setting
 				}
 				gCwKeyInputCheckFailed = false;
 				gEeprom.CW_KEY_INPUT_MENU = gSubMenuSelection;
 				gEeprom.CW_KEY_INPUT = new_mode;
-				gFlagReconfigureVfos = true;  // Reconfigure VFOs to apply new key input settings
 			}
+			gFlagReconfigureVfos = true;  // Reconfigure VFOs to apply new key input settings
 			break;
 
 		case MENU_CW_MSG1:
@@ -1358,11 +1357,11 @@ void MENU_ShowCurrentSetting(void)
 			gSubMenuSelection = gEeprom.CW_KEY_INPUT_MENU;
 		break;
 
-		case MENU_CW_CLO:
+		case MENU_CW_ADC_LO_20K:
 			gSubMenuSelection = gEeprom.CW_ADC_CABLE_20K;
 			break;
 
-		case MENU_CW_CHI:
+		case MENU_CW_ADC_HI_10K:
 			gSubMenuSelection = gEeprom.CW_ADC_CABLE_10K;
 			break;
 

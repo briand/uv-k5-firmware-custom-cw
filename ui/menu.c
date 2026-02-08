@@ -951,21 +951,19 @@ void UI_DisplayMenu(void)
 				// Check if we're in recording mode
 				if (gIsInSubMenu && edit_index >= 0 && gCW_Recording) {
 					// Recording mode - show accumulated characters
-					char display[16];
-					uint8_t cursor_pos = CW_GetRecordingDisplay(display, sizeof(display));
+					char display[10];
+					const uint8_t display_len = CW_GetTxDisplayTail(display, sizeof(display));
 					
 					// Display the recording text on line 2
-					UI_PrintString(display, menu_item_x1, menu_item_x2, 2, 8);
+					UI_PrintString(display, menu_item_x1, 0, 2, 8);
 					
-					// Show cursor under current position (cursor_pos is the index in display string)
-					if (cursor_pos < strlen(display)) {
-						char cursor[2] = "^";
-						UI_PrintString(cursor, menu_item_x1 + (cursor_pos * 8), 0, 4, 8);
-					}
+					// Show cursor under next position
+					char cursor[2] = "^";
+					UI_PrintString(cursor, menu_item_x1 + (display_len * 8), 0, 4, 8);
 					
 					// Show recording count on line 5 (not 6 which gets cut off)
 					if (gCW_RecordLength >= CW_MACRO_MAX_LEN) {
-						sprintf(String, "FULL %u/%u", gCW_RecordLength, CW_MACRO_MAX_LEN);
+						sprintf(String, "FULL! %u/%u", gCW_RecordLength, CW_MACRO_MAX_LEN);
 					} else {
 						sprintf(String, "REC %u/%u", gCW_RecordLength, CW_MACRO_MAX_LEN);
 					}
@@ -973,14 +971,13 @@ void UI_DisplayMenu(void)
 					
 					already_printed = true;
 				} else if (gSubMenuSelection == 0) {
-					// Show current macro (use 9 char width for 4 lines = 36 chars)
 					if (len == 0) {
 						strcpy(String, "empty");
 					} else {
 						CW_FormatMacroDisplay(macroIdx, String, 9);
 					}
 				} else {
-					// record/play
+					// record/play/repeat
 					strcpy(String, gSubMenu_CW_MSG[gSubMenuSelection-1]);
 				}
 			}

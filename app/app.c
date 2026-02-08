@@ -915,7 +915,7 @@ void APP_Update(void)
 		{
 			case CW_ACTION_CARRIER_ON:
 				gTxTimerCountdown_500ms = 0;
-				gCW_TxDisplayHoldoff_10ms = 100;
+				gCW_TxDisplayHoldoff_10ms = 200;
 				gPttIsPressed = true;
 
 				if(gCW_State == CW_INACTIVE)
@@ -934,7 +934,7 @@ void APP_Update(void)
 				//UART_Send("CW Suspend\r\n", 12);
 				RADIO_CW_Suspend();
 				gCW_SuspendCountdown_10ms = 0;
-				gCW_TxDisplayHoldoff_10ms = 100; // leave the centerline decoder on for a second
+				gCW_TxDisplayHoldoff_10ms = 200; // leave the centerline decoder on for a second
 			break;
 
 			case CW_ACTION_CARRIER_HOLD_ON:

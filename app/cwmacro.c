@@ -419,10 +419,8 @@ void CW_EncoderProcessElement(CW_ElementType_t element)
 					gCW_RecordBuffer[gCW_RecordLength++] = CW_MACRO_ENCODE(ch, s_encoder_space_pending);
 					gCW_RecordNewChar = true;
 				}
-				// Add to TX display buffer when transmitting (not recording)
-				else if (!gCW_Recording) {
-					CW_AddToTxDisplay(ch, s_encoder_space_pending);
-				}
+				// Add to TX display buffer even when recording, so we can use the buffer for display
+				CW_AddToTxDisplay(ch, s_encoder_space_pending);
 			}
 			
 			// Reset for next character
@@ -452,6 +450,7 @@ void CW_StartRecording(uint8_t macroIndex)
 	gCW_RecordLength = 0;
 	gCW_RecordNewChar = false;
 	gCW_Recording = true;
+	CW_ClearTxDisplay();
 	
 	// Reset encoder state
 	s_encoder_pattern = 0;
@@ -480,6 +479,7 @@ void CW_StopRecording(void)
 	
 	gCW_Recording = false;
 	gCW_RecordNewChar = false;
+	CW_ClearTxDisplay();
 }
 
 void CW_AddToTxDisplay(char ch, bool hasSpace)
@@ -530,79 +530,19 @@ void CW_ClearTxDisplay(void)
 	gCW_TX_DisplayIndex = 0;
 }
 
-uint8_t CW_GetRecordingDisplay(char *display, uint8_t maxChars)
+uint8_t CW_GetTxDisplayTail(char *display, uint8_t maxLen)
 {
-	if (display == NULL || maxChars == 0 || !gCW_Recording)
+	if (display == NULL || maxLen == 0)
 		return 0;
-	
-	uint8_t cursor_pos = 0;
-	uint8_t outPos = 0;
-	
-	// Calculate total display positions (each space and each char = 1 position)
-	uint8_t total_positions = 0;
-	for (uint8_t i = 0; i < gCW_RecordLength; i++) {
-		if (CW_MACRO_HAS_SPACE(gCW_RecordBuffer[i])) {
-			total_positions++;  // Space position
-		}
-		total_positions++;  // Character position
-	}
-	
-	// Calculate how many positions to skip from the left (scroll when > 9)
-	uint8_t skip_positions = 0;
-	if (total_positions > 9) {
-		skip_positions = total_positions - 9;
-	}
-	
-	// Build display string, skipping positions from the left
-	uint8_t position_count = 0;
-	for (uint8_t i = 0; i < gCW_RecordLength && outPos < maxChars - 2; i++) {
-		// Handle space before character
-		if (CW_MACRO_HAS_SPACE(gCW_RecordBuffer[i])) {
-			if (position_count >= skip_positions) {
-				// This space position is visible
-				if (outPos < maxChars - 2) {
-					display[outPos++] = ' ';
-				}
-			}
-			position_count++;
-		}
-		
-		// Handle character
-		if (position_count >= skip_positions) {
-			// This character position is visible
-			char ch = CW_MACRO_GET_CHAR(gCW_RecordBuffer[i]);
-			if (outPos < maxChars - 2) {
-				display[outPos++] = ch;
-			}
-		}
-		position_count++;
-	}
-	
-	// Add cursor placeholder if room, or space if buffer is full
-	if (outPos < maxChars - 1) {
-		if (gCW_RecordLength < CW_MACRO_MAX_LEN) {
-			display[outPos++] = '_';
-		} else {
-			display[outPos++] = ' ';  // Space to maintain alignment when full
-		}
-	}
-	
-	// Cursor position is at the underscore (currently at outPos - 1)
-	if (outPos > 0 && display[outPos - 1] == '_') {
-		cursor_pos = outPos - 1;
-	} else {
-		cursor_pos = outPos;
-	}
 
-	// Pad with spaces up to 10 chars to prevent centering jitter
-	// Only pad if total content (before padding) is < 10 positions
-	if (total_positions < 10) {
-		while (outPos < 10 && outPos < maxChars - 1) {
-			display[outPos++] = ' ';
-		}
+	const size_t len = strlen(gCW_TX_Display);
+	const uint8_t copy_len = (len >= (size_t)(maxLen - 1)) ? (uint8_t)(maxLen - 1) : (uint8_t)len;
+	const size_t idx = (len > copy_len) ? (len - copy_len) : 0;
+
+	if (copy_len > 0) {
+		memcpy(display, gCW_TX_Display + idx, copy_len);
 	}
-	
-	display[outPos] = '\0';
-	
-	return cursor_pos;
+	display[copy_len] = '\0';
+	return copy_len;
 }
+

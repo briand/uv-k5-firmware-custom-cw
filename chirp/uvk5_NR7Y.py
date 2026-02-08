@@ -27,10 +27,10 @@ CW_MACRO_SIG = 0x80
 # CW settings EEPROM addresses
 CW_SETTINGS_ADDR = 0x0F20  # 3 bytes: freq/vol, mode/wpm, key_input
 
-# Key input mode display strings (beta3: 10 modes including CEC cable)
+# Key input mode display strings (menu index stored directly, bitmap not stored)
 CW_KEY_INPUT_MODES = [
     "PTT HandKey",                    # 0: 0x08
-    "PTT+Port HandKey",               # 1: 0x18
+    "PTT+Tip HandKey",               # 1: 0x18
     "PTT dah, Side1 dit",             # 2: 0x04
     "PTT dit, Side1 dah",             # 3: 0x05
     "PTT+Tip dah, Ring dit",          # 4: 0x12
@@ -40,11 +40,6 @@ CW_KEY_INPUT_MODES = [
     "CEC (PTT dah, Tip dit)",         # 8: 0x20 - NEW beta3
     "CEC (PTT dit, Tip dah)"          # 9: 0x21 - NEW beta3
 ]
-
-# Map menu index to bit-mapped values (beta3: menu index stored, not bitmap)
-# Beta3 stores the menu index (0-9) directly, then converts to bitmap internally
-CW_KEY_INPUT_BITMAP = [0x08, 0x18, 0x04, 0x05, 0x12, 0x13, 0x16, 0x17, 0x20, 0x21]
-
 # Complete programmable key actions list from firmware (settings.h:105-127)
 # Beta3 extends with repeat actions - synced with firmware beta3
 KEYACTIONS_LIST = [
@@ -70,7 +65,7 @@ KEYACTIONS_LIST = [
     "Repeat CW MSG 2",           # 19: ACTION_OPT_REPEAT_CWMSG2 (beta3)
     "Repeat CW MSG 3",           # 20: ACTION_OPT_REPEAT_CWMSG3 (beta3)
     "Repeat CW MSG 4",           # 21: ACTION_OPT_REPEAT_CWMSG4 (beta3)
-    "Spectrum"                   # 22: ACTION_OPT_SPECTRUM (moved from 18)
+    # SPECTRUM disabled due to lack of space
 ]
 
 
@@ -286,21 +281,19 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
         except Exception as e:
             LOG.error(f"Error adding key input setting: {e}")
 
-        # CW Operating Mode (beta3) - Simplified to match firmware menu (OFF/ON)
+        # CW Break-in (CWbkin) - OFF/ON
         try:
-            oper_mode_opts = ["OFF (Normal CW)", "ON (CPO Mode)"]
-            # Firmware menu shows as binary: 0=off, 1+=on
-            oper_mode_value = self._get_cw_oper_mode()
-            oper_mode_idx = 1 if oper_mode_value > 0 else 0
-            cw_oper = RadioSetting(
-                "cw.oper_mode",
-                "CPO Mode (Practice Keyer)",
-                RadioSettingValueList(oper_mode_opts, oper_mode_opts[oper_mode_idx])
+            breakin_opts = ["OFF", "ON"]
+            breakin_idx = 1 if self._get_cw_breakin() else 0
+            cw_breakin = RadioSetting(
+                "cw.break_in",
+                "Break-in",
+                RadioSettingValueList(breakin_opts, breakin_opts[breakin_idx])
             )
-            cw_oper.set_doc("OFF: Normal CW (instant TX). ON: CPO practice mode (sidetone only, no TX)")
-            cw.append(cw_oper)
+            cw_breakin.set_doc("ON: RF TX during keying. OFF: sidetone only, no TX.")
+            cw.append(cw_breakin)
         except Exception as e:
-            LOG.error(f"Error adding oper mode setting: {e}")
+            LOG.error(f"Error adding break-in setting: {e}")
 
         # Message Repeat Delay (beta3)
         try:
@@ -392,11 +385,11 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
                         idx = CW_KEY_INPUT_MODES.index(str(setting.value))
                         self._set_cw_key_input_idx(idx)
                         LOG.debug(f"Set key input to {setting.value}")
-                    elif name == "cw.oper_mode":
+                    elif name in ("cw.break_in", "cw.oper_mode"):
                         # Match firmware menu behavior: OFF=0, ON=1
-                        idx = ["OFF (Normal CW)", "ON (CPO Mode)"].index(str(setting.value))
-                        self._set_cw_oper_mode(idx)  # 0=BREAK_IN, 1=CPO_RX
-                        LOG.debug(f"Set CPO mode to {setting.value}")
+                        idx = ["OFF", "ON"].index(str(setting.value)) if name == "cw.break_in" else ["OFF (Normal CW)", "ON (CPO Mode)"].index(str(setting.value))
+                        self._set_cw_breakin(1 if idx > 0 else 0)
+                        LOG.debug(f"Set break-in to {setting.value}")
                     elif name == "cw.repeat_delay":
                         self._set_cw_repeat_delay(int(setting.value))
                         LOG.debug(f"Set CW repeat delay to {setting.value}")
@@ -522,11 +515,11 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
         self._mmap[CW_SETTINGS_ADDR + 1] = byte1
 
     def _get_cw_key_input_idx(self) -> int:
-        """Get key input mode index (0-9) - beta3 stores menu index directly"""
+        """Get key input mode index (0-9) - stored directly in bits 0-4"""
         byte2 = struct.unpack('B', bytes(self._mmap[CW_SETTINGS_ADDR+2:CW_SETTINGS_ADDR+3]))[0]
         if byte2 == 0xFF or byte2 >= 0x80:
             return 0  # Default HandKey
-        # Beta3: bits 0-4 = menu index (0-9), bits 5-6 = oper_mode
+        # bits 0-4 = menu index (0-9)
         menu_idx = byte2 & 0x1F
         if menu_idx >= len(CW_KEY_INPUT_MODES):
             LOG.debug(f"Invalid key input menu index {menu_idx}, defaulting to HandKey")
@@ -534,28 +527,30 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
         return menu_idx
     
     def _set_cw_key_input_idx(self, idx: int) -> None:
-        """Set key input mode from index - beta3 stores menu index directly"""
+        """Set key input mode from index - stored directly in bits 0-5"""
         if idx < 0 or idx >= len(CW_KEY_INPUT_MODES):
             idx = 0
         byte2 = struct.unpack('B', bytes(self._mmap[CW_SETTINGS_ADDR+2:CW_SETTINGS_ADDR+3]))[0]
-        # Preserve bits 5-6 (oper_mode), set bits 0-4 (menu index)
-        oper_mode = (byte2 >> 5) & 0x03
-        self._mmap[CW_SETTINGS_ADDR + 2] = (idx & 0x1F) | (oper_mode << 5)
+        # Preserve bit 6 (break-in) and bit 5 (reserved), set bits 0-5 (menu index)
+        break_in = (byte2 >> 6) & 0x01
+        reserved = byte2 & 0x20
+        self._mmap[CW_SETTINGS_ADDR + 2] = (idx & 0x1F) | reserved | (break_in << 6)
 
-    def _get_cw_oper_mode(self) -> int:
-        """Get CW operating mode (0=Break-in, 1=CPO+RX, 2=CPO+mute) - beta3"""
+    def _get_cw_breakin(self) -> int:
+        """Get CW break-in enable (0=OFF, 1=ON)"""
         byte2 = struct.unpack('B', bytes(self._mmap[CW_SETTINGS_ADDR+2:CW_SETTINGS_ADDR+3]))[0]
         if byte2 == 0xFF or byte2 >= 0x80:
-            return 0  # Default Break-in
-        return (byte2 >> 5) & 0x03
+            return 1  # Default Break-in ON
+        return (byte2 >> 6) & 0x01
     
-    def _set_cw_oper_mode(self, mode: int) -> None:
-        """Set CW operating mode (0-2) - beta3"""
-        mode = max(0, min(2, mode))
+    def _set_cw_breakin(self, mode: int) -> None:
+        """Set CW break-in enable (0=OFF, 1=ON)"""
+        mode = 1 if mode else 0
         byte2 = struct.unpack('B', bytes(self._mmap[CW_SETTINGS_ADDR+2:CW_SETTINGS_ADDR+3]))[0]
-        # Preserve bits 0-4 (key input), set bits 5-6 (oper mode)
+        # Preserve bits 0-4 (key input) and bit 5 (reserved), set bit 6 (break-in)
         key_input = byte2 & 0x1F
-        self._mmap[CW_SETTINGS_ADDR + 2] = key_input | (mode << 5)
+        reserved = byte2 & 0x20
+        self._mmap[CW_SETTINGS_ADDR + 2] = key_input | reserved | (mode << 6)
 
     def _get_cw_repeat_delay(self) -> int:
         """Get CW message repeat delay in seconds (0-127) - beta3"""

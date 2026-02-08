@@ -278,7 +278,7 @@ void CW_SaveMacro(uint8_t macroIndex, const char *buffer, uint8_t length)
 	}
 #endif
 
-	// Write entire 40-byte block to EEPROM in 8-byte chunks
+	// Write block to EEPROM in 8-byte chunks (aligned)
 	// EEPROM_WriteBuffer only writes 8 bytes at a time
 	for (uint8_t i = 0; i < CW_MACRO_BLOCK_SIZE; i += 8) {
 		EEPROM_WriteBuffer(MACRO_ADDRS[macroIndex] + i, data + i);
@@ -403,6 +403,7 @@ void CW_EncoderProcessElement(CW_ElementType_t element)
 			}
 #endif
 			if (ch != 0 && CW_ValidateChar(ch)) {
+				const bool can_update_display = !gCW_Recording || (gCW_RecordLength < CW_MACRO_MAX_LEN);
 #if CW_ENCODER_DEBUG
 				// Print decoded character for debug
 				char buf[32];
@@ -419,8 +420,10 @@ void CW_EncoderProcessElement(CW_ElementType_t element)
 					gCW_RecordBuffer[gCW_RecordLength++] = CW_MACRO_ENCODE(ch, s_encoder_space_pending);
 					gCW_RecordNewChar = true;
 				}
-				// Add to TX display buffer even when recording, so we can use the buffer for display
-				CW_AddToTxDisplay(ch, s_encoder_space_pending);
+				// Add to TX display buffer unless recording is already full
+				if (can_update_display) {
+					CW_AddToTxDisplay(ch, s_encoder_space_pending);
+				}
 			}
 			
 			// Reset for next character

@@ -945,11 +945,9 @@ void UI_DisplayMenu(void)
 		case MENU_CW_MSG3:
 		case MENU_CW_MSG4:
 			{
-				uint8_t macroIdx = UI_MENU_GetCurrentMenuId() - MENU_CW_MSG1;
-				uint8_t len = CW_GetMacroLength(macroIdx);
-				
 				// Check if we're in recording mode
 				if (gIsInSubMenu && edit_index >= 0 && gCW_Recording) {
+
 					// Recording mode - show accumulated characters
 					char display[10];
 					const uint8_t display_len = CW_GetTxDisplayTail(display, sizeof(display));
@@ -963,7 +961,7 @@ void UI_DisplayMenu(void)
 					
 					// Show recording count on line 5 (not 6 which gets cut off)
 					if (gCW_RecordLength >= CW_MACRO_MAX_LEN) {
-						sprintf(String, "FULL! %u/%u", gCW_RecordLength, CW_MACRO_MAX_LEN);
+						sprintf(String, "FULL! %u", gCW_RecordLength);
 					} else {
 						sprintf(String, "REC %u/%u", gCW_RecordLength, CW_MACRO_MAX_LEN);
 					}
@@ -971,6 +969,8 @@ void UI_DisplayMenu(void)
 					
 					already_printed = true;
 				} else if (gSubMenuSelection == 0) {
+					uint8_t macroIdx = UI_MENU_GetCurrentMenuId() - MENU_CW_MSG1;
+					uint8_t len = CW_GetMacroLength(macroIdx);
 					if (len == 0) {
 						strcpy(String, "empty");
 					} else {

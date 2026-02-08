@@ -25,11 +25,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-// Keep full 40-character payload and store a checksum byte after the payload
-#define CW_MACRO_MAX_LEN 40  // payload bytes
+// Keep full 46-character payload and store a checksum byte after the payload
+#define CW_MACRO_MAX_LEN 46  // payload bytes
 #define CW_MACRO_COUNT 4
-// Block layout: [0]=len|SIG, [1..40]=payload bytes (encoded), [41]=checksum
-#define CW_MACRO_BLOCK_SIZE 42
+// Block layout: [0]=len|SIG, [1..46]=payload bytes (encoded), [47]=checksum
+#define CW_MACRO_BLOCK_SIZE 48
 
 // Signature is stored in the length byte (high bit). Checksum is stored in the
 // extra byte at the end of the 42-byte block (offset 41).
@@ -40,9 +40,9 @@
 // We reuse the DTMF contacts region (0x1C00..0x1CFF), DTMF calling must be disabled
 
 #define CW_MACRO1_EEPROM_ADDR 0x1C00
-#define CW_MACRO2_EEPROM_ADDR (CW_MACRO1_EEPROM_ADDR + CW_MACRO_BLOCK_SIZE)  /* ensures blocks don't overlap */
-#define CW_MACRO3_EEPROM_ADDR (CW_MACRO2_EEPROM_ADDR + CW_MACRO_BLOCK_SIZE)  /* 0x1C54 */
-#define CW_MACRO4_EEPROM_ADDR (CW_MACRO3_EEPROM_ADDR + CW_MACRO_BLOCK_SIZE)  /* 0x1C7E */
+#define CW_MACRO2_EEPROM_ADDR (CW_MACRO1_EEPROM_ADDR + CW_MACRO_BLOCK_SIZE)  /* 0x1C30 */
+#define CW_MACRO3_EEPROM_ADDR (CW_MACRO2_EEPROM_ADDR + CW_MACRO_BLOCK_SIZE)  /* 0x1C60 */
+#define CW_MACRO4_EEPROM_ADDR (CW_MACRO3_EEPROM_ADDR + CW_MACRO_BLOCK_SIZE)  /* 0x1C90 */
 
 // Encoding/Decoding helper macros
 #define CW_MACRO_ENCODE(ch, hasSpace) ((hasSpace) ? ((ch) | 0x80) : (ch))

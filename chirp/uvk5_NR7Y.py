@@ -19,9 +19,9 @@ from chirp.drivers import uvk5
 LOG = logging.getLogger(__name__)
 
 # CW Macro constants
-CW_MACRO_ADDRS = [0x1C00, 0x1C2A, 0x1C54, 0x1C7E]
-CW_MACRO_SIZE = 42
-CW_MACRO_MAX_LEN = 40
+CW_MACRO_ADDRS = [0x1C00, 0x1C30, 0x1C60, 0x1C90]
+CW_MACRO_SIZE = 48
+CW_MACRO_MAX_LEN = 46
 CW_MACRO_SIG = 0x80
 
 # CW settings EEPROM addresses
@@ -313,13 +313,13 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
         for i in range(1, 5):
             try:
                 msg_text = self._get_cw_msg(i)
-                val = RadioSettingValueString(0, 40, msg_text)
+                val = RadioSettingValueString(0, 46, msg_text)
                 msg = RadioSetting(
                     f"cw.msg{i}",
                     f"CW Message {i}",
                     val
                 )
-                msg.set_doc(f"CW macro {i} (A-Z, 0-9, /, ? only, max 40 chars)")
+                msg.set_doc(f"CW macro {i} (A-Z, 0-9, /, ? only, max 46 chars)")
                 macros.append(msg)
             except Exception as e:
                 LOG.error(f"Error adding macro {i}: {e}")
@@ -594,10 +594,10 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
             LOG.debug(f"Macro {idx}: invalid length {length}")
             return ""
         
-        # Verify checksum (byte 41)
+        # Verify checksum (last byte)
         checksum = sum(raw[1:length + 1]) & 0xFF
-        if raw[41] != checksum:
-            LOG.warning(f"Macro {idx} checksum fail (expected 0x{checksum:02x}, got 0x{raw[41]:02x})")
+        if raw[CW_MACRO_SIZE - 1] != checksum:
+            LOG.warning(f"Macro {idx} checksum fail (expected 0x{checksum:02x}, got 0x{raw[CW_MACRO_SIZE - 1]:02x})")
             return ""
         
         # Decode characters
@@ -671,7 +671,7 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
         
         # Calculate and set checksum
         checksum = sum(encoded) & 0xFF
-        raw[41] = checksum
+        raw[CW_MACRO_SIZE - 1] = checksum
         
         # Write to memory byte by byte
         for i in range(CW_MACRO_SIZE):

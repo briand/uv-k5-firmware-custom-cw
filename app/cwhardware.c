@@ -35,7 +35,7 @@
 #include "driver/timer.h"
 #include "external/printf/printf.h"
 
-#define ENABLE_KEYER_DEBUG 0
+#define ENABLE_CEC_KEYER_DEBUG 0
 
 // Local state for last sampled paddles (edge detection)
 static bool s_last_dit = false;
@@ -281,7 +281,7 @@ void CW_ConfigurePortGround(bool enable)
         // Re-enable DMA Channel 0
         DMA_CH0->CTR |= DMA_CH_CTR_CH_EN_BITS_ENABLE;
         }
-#ifdef ENABLE_KEYER_DEBUG
+#if ENABLE_KEYER_DEBUG
     char buf[50];
     sprintf_(buf, "Port Ground %s\r\n", enable ? "Enabled" : "Disabled");
     UART_Send(buf, strlen(buf));
@@ -307,7 +307,7 @@ void CW_ConfigurePortRing(bool enable)
         GPIO_SetBit(&GPIOB->DATA, GPIOB_PIN_BK1080); // Set PB15 high
         GPIOB->DIR |= GPIO_DIR_15_BITS_OUTPUT; // Then switch to output
     }
-#ifdef ENABLE_KEYER_DEBUG
+#if ENABLE_KEYER_DEBUG
     char buf[50];
     sprintf_(buf, "Port Ring %s\r\n", enable ? "Enabled" : "Disabled");
     UART_Send(buf, strlen(buf));
@@ -337,7 +337,7 @@ void CW_ConfigureADCforCECPaddles(bool enable)
         GPIOC->DIR &= ~GPIO_DIR_5_MASK; // INPUT
         PORTCON_PORTC_IE |= PORTCON_PORTC_IE_C5_BITS_ENABLE; // Enable input buffer
     }
-#ifdef ENABLE_KEYER_DEBUG
+#if ENABLE_CEC_KEYER_DEBUG
     char buf[50];
     sprintf_(buf, "ADC for CEC %s\r\n", enable ? "Enabled" : "Disabled");
     UART_Send(buf, strlen(buf));

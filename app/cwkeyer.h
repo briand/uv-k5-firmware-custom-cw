@@ -59,4 +59,8 @@ CW_Action_t CW_PlaybackHandleState(void);
 // Call from a periodic context (e.g., APP_TimeSlice10ms). Uses timer_jiffies/millis.
 void CW_PlaybackIndicatorDeadline(void);
 
+#ifdef ENABLE_FLASHLIGHT
+extern bool gCW_FlashlightSending;
+#endif
+
 #endif // APP_CWKEYER_H

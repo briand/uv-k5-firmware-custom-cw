@@ -47,11 +47,6 @@
 // Debug logging control - set to 1 to enable UART debug output
 #define CW_KEYER_DEBUG 0
 
-// Debug: log when a dit is created while only dah is pressed
-#ifndef CW_KEYER_DEBUG_DAH_SEND
-#define CW_KEYER_DEBUG_DAH_SEND 0
-#endif
-
 // Timer scale: 10 kHz tick → 100 µs per tick
 // 16-bit counter rolls over at 6553 ms
 #define DITS_PER_WORD 50
@@ -108,6 +103,10 @@ static volatile bool s_cfg_dirty = true;
 // Keyer enabled flag
 static volatile bool s_enable_keyer = false;
 
+#ifdef ENABLE_FLASHLIGHT
+bool gCW_FlashlightSending = false;
+#endif
+
 
 void CW_UpdateWPM()
 {
@@ -131,18 +130,11 @@ void CW_UpdateWPM()
 }
 
 // Called when changing to non-CW mode
-void CW_KeyerDeinit()
+static void CW_KeyerDeinit()
 {
-    if(gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_PORT_GROUND)
-        CW_ConfigurePortGround(false);
-
-    if(gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_PORT_RING)
-        CW_ConfigurePortRing(false);
-
-    if(gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_ADC)
-    {
-        CW_ConfigureADCforCECPaddles(false);
-    }
+    // ADC does the port ground deinit too
+    CW_ConfigureADCforCECPaddles(false);
+    CW_ConfigurePortRing(false);
 
     gCW_KeyerUsingSD1 = false;
     s_enable_keyer = false;
@@ -419,6 +411,9 @@ bool CW_CheckKeyerInputs(uint8_t new_mode)
         return true;
     }
     
+    // the port keyer modes interact poorly, so we have to deconfigure first
+    CW_KeyerReconfigure(false);
+
 #if CW_KEYER_DEBUG
     UART_Send("Checking CW keyer inputs\r\n", 26);
 #endif
@@ -449,7 +444,7 @@ bool CW_CheckKeyerInputs(uint8_t new_mode)
     int total_checks = 0;
 #endif
     
-    for (int i = 0; i < 20; i++) {  // Check up to 20 times = 20ms max
+    for (int i = 0; i < 20; i++) {  // Check up to 20 times = 200ms max
         bool dit = false, dah = false;
         CW_ReadKeysForMode(new_mode, &dit, &dah);
 #if CW_KEYER_DEBUG
@@ -471,7 +466,7 @@ bool CW_CheckKeyerInputs(uint8_t new_mode)
             }
         }
         
-        SYSTEM_DelayMs(1);
+        SYSTEM_DelayMs(10);
     }
     
 #if CW_KEYER_DEBUG
@@ -491,15 +486,8 @@ bool CW_CheckKeyerInputs(uint8_t new_mode)
 #if CW_KEYER_DEBUG
     UART_Send("CW keyer inputs stuck\r\n", 24);
 #endif
-    if (uses_port_ground || uses_port_ring)
-    {   
-        CW_ConfigurePortGround(false);
-        CW_ConfigurePortRing(false);
-    }
-    if(uses_adc)
-    {
-        CW_ConfigureADCforCECPaddles(false);
-    }
+
+    CW_KeyerDeinit();  // put ports back, disable keyer
 
     return false;
 }
@@ -541,10 +529,12 @@ CW_Action_t CW_HandleState(void)
     static CW_KeyerFSMState_t last_logged_state = CWK_STATE_IDLE;
 #endif
 
-    // check dirty flag at idle - reconfigure only when safe
     if (s_cfg_dirty && s_KeyerFSMState == CWK_STATE_IDLE) {
         CW_KeyerInit();
     }
+
+    if(!s_enable_keyer)
+        return CW_ACTION_NONE;
 
     const uint16_t cur_count = (uint16_t)TIMERBASE0_LOW_CNT;
     const uint16_t delta_since_last = timer_jiffies_since(s_last_count);

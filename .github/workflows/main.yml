@@ -52,3 +52,25 @@ jobs:
           overwrite: true
           release_name: release ${{ env.RELEASE_TAG }}
 
+      - name: Upload firmware README to release
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: NR7Y_FIRMWARE_README.md
+          asset_name: NR7Y_FIRMWARE_README.md
+          tag: ${{ github.ref }}
+          overwrite: true
+          release_name: release ${{ env.RELEASE_TAG }}
+
+      - name: Upload CHIRP module to release
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: chirp/uvk5_NR7Y.py
+          asset_name: uvk5_NR7Y.py
+          tag: ${{ github.ref }}
+          overwrite: true
+          release_name: release ${{ env.RELEASE_TAG }}
+

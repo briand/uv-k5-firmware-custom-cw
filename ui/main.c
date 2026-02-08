@@ -718,9 +718,9 @@ void UI_DisplayMain(void)
 
 		if (vfoInfo->CHANNEL_BANDWIDTH == BANDWIDTH_NARROW)
 			UI_PrintStringSmallNormal("N", LCD_WIDTH + 70, 0, line + 1);		
+#ifdef ENABLE_EXTRA_FILTER
 		else if (vfoInfo->CHANNEL_BANDWIDTH == BANDWIDTH_6K)
 			UI_PrintStringSmallNormal("6k", LCD_WIDTH + 70, 0, line + 1);
-#ifdef ENABLE_EXTRA_FILTER
 		else if (vfoInfo->CHANNEL_BANDWIDTH == BANDWIDTH_1p7K)
 			UI_PrintStringSmallNormal("1.7k", LCD_WIDTH + 70, 0, line + 1);
 #endif

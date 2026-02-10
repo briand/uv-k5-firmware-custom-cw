@@ -279,6 +279,15 @@ static void MAIN_Key_DIGITS(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 					gRequestDisplayScreen = DISPLAY_MAIN;
 				}
 
+				#ifndef ENABLE_VOX
+				if (Key == KEY_7) {
+					gWasFKeyPressed = false;
+					gUpdateStatus   = true;
+					ACTION_SwitchFilter();
+					return;
+				}
+				#endif
+
 				gWasFKeyPressed = false;
 				gUpdateStatus   = true;
 

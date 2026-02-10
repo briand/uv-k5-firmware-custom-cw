@@ -304,11 +304,6 @@ void FUNCTION_Select(FUNCTION_Type_t Function)
 		case FUNCTION_RECEIVE:
 		case FUNCTION_BAND_SCOPE:
 		default:
-		// briand TODO
-			// #ifdef ENABLE_CW_MODULATOR
-			// if (gRxVfo->Modulation == MODULATION_CW)
-			// 	gMonitor = true;
-			// #endif
 			break;
 	}
 

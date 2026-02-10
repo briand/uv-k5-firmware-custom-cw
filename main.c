@@ -174,7 +174,7 @@ void Main(void)
 			if (KEYBOARD_Poll() != KEY_INVALID) {
 				break;
 			}
-			
+			boot_counter_10ms++;
 			SYSTEM_DelayMs(10);
 		}
 		gKeyReading0 = KEY_INVALID;

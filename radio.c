@@ -410,7 +410,7 @@ void RADIO_ConfigureSquelchAndOutputPower(VFO_Info_t *pInfo)
 		
 	if (gEeprom.SQUELCH_LEVEL == 0
 	#ifdef ENABLE_CW_MODULATOR
-		|| pInfo->Modulation == MODULATION_CW   // briand - TODO revisit squelch
+		|| pInfo->Modulation == MODULATION_CW || pInfo->Modulation == MODULATION_USB  // briand - TODO revisit squelch
 	#endif
 	)
 	{	// squelch == 0 (off)
@@ -886,7 +886,6 @@ void RADIO_SetModulation(ModulationMode_t modulation)
 		case MODULATION_CW:
 #endif	
 		case MODULATION_USB:
-			gMonitor = true;
 			mod = BK4819_AF_BASEBAND2;
 			break;
 
@@ -1079,8 +1078,14 @@ void RADIO_SendCssTail(void)
 
 void RADIO_SendEndOfTransmission(void)
 {
+#ifdef ENABLE_CW_MODULATOR
+	if (gCurrentVfo->Modulation != MODULATION_CW) {
+#endif
 	BK4819_PlayRoger();
 	DTMF_SendEndOfTransmission();
+#ifdef ENABLE_CW_MODULATOR
+	}
+#endif
 
 	// send the CTCSS/DCS tail tone - allows the receivers to mute the usual FM squelch tail/crash
 	if(gEeprom.TAIL_TONE_ELIMINATION)

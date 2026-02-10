@@ -138,6 +138,7 @@ static void CW_KeyerDeinit()
 
     gCW_KeyerUsingSD1 = false;
     s_enable_keyer = false;
+    s_last_handkey_ptt = false;
 }
 
 // Initialize keyer from gEeprom settings
@@ -554,7 +555,7 @@ CW_Action_t CW_HandleState(void)
     if (delta_since_last < TICKS_PER_MS) {
         // Not enough time has passed - return appropriate action for current state
         // ACTIVE states: hold carrier on, GAP/IDLE states: no action (carrier off)
-        if (s_KeyerFSMState == CWK_STATE_ACTIVE_ELEMENT) {
+        if (s_KeyerFSMState == CWK_STATE_ACTIVE_ELEMENT || s_last_handkey_ptt) {
             return CW_ACTION_CARRIER_HOLD_ON;
         }
         return CW_ACTION_NONE;

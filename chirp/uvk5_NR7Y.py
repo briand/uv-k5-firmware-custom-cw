@@ -2,19 +2,19 @@
 # chirp driver for Quansheng UV-K5 with NR7Y CW firmware
 # Supports CW modulator settings and 4 macro memories
 
-import re
 import logging
 import struct
 
-from chirp import directory, bitwise, memmap, errors, chirp_common
+from chirp import directory
 from chirp.settings import (
     RadioSetting, RadioSettingGroup, RadioSettingValueBoolean,
     RadioSettingValueInteger, RadioSettingValueString, RadioSettingValueList,
     RadioSettings
 )
 
-# Import the official UV-K5 driver from CHIRP
+# Import the official UV-K5 drivers from CHIRP
 from chirp.drivers import uvk5
+from chirp.drivers import uvk5_egzumer
 
 LOG = logging.getLogger(__name__)
 
@@ -23,15 +23,6 @@ MODULATION_FM = 0
 MODULATION_AM = 1
 MODULATION_USB = 2
 MODULATION_CW = 3
-
-# Step settings from firmware (frequencies.h STEP_Setting_t)
-STEP_SETTINGS_KHZ = [
-    2.5, 5.0, 6.25, 10.0, 12.5, 25.0, 8.33,
-    0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 1.25,
-    9.0, 15.0, 20.0, 30.0, 50.0, 100.0,
-    125.0, 200.0, 250.0, 500.0
-]
-STEP_KHZ_TO_IDX = {v: i for i, v in enumerate(STEP_SETTINGS_KHZ)}
 
 # Channel bandwidth options (radio.h)
 CHANNEL_BANDWIDTH_OPTIONS = ["Wide", "Narrow", "6K", "1.7K"]
@@ -89,7 +80,7 @@ KEYACTIONS_LIST = [
 
 @directory.register
 @directory.detected_by(uvk5.UVK5Radio)
-class UVK5_NR7Y(uvk5.UVK5RadioBase):
+class UVK5_NR7Y(uvk5_egzumer.UVK5RadioEgzumer):
     """Quansheng UV-K5 with NR7Y CW firmware"""
 
     VENDOR = "Quansheng"
@@ -133,14 +124,32 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
     def _is_nr7y_cw_firmware(self) -> bool:
         """Check if firmware has CW modulator enabled"""
         try:
-            # Read build options from 0x1FF0-0x1FF1
-            build_opts = bytes(self._mmap[0x1FF0:0x1FF2])
+            build_opt1 = self._get_build_opt_byte1()
             # Bit 6 of byte 1 indicates ENABLE_CW_MODULATOR
-            has_cw = (build_opts[1] & 0x40) != 0
-            LOG.info(f"CW modulator flag: {has_cw} (0x1FF1=0x{build_opts[1]:02x})")
+            has_cw = (build_opt1 & 0x40) != 0
+            LOG.info(f"CW modulator flag: {has_cw} (0x1FF1=0x{build_opt1:02x})")
             return has_cw
         except Exception as e:
             LOG.error(f"Error checking CW firmware flag: {e}")
+            return False
+
+    def _get_build_opt_byte1(self) -> int:
+        """Read build options byte 1 from EEPROM (0x1FF1)."""
+        try:
+            val = self._mmap[0x1FF1]
+            if isinstance(val, (bytes, bytearray)):
+                val = val[0]
+            return int(val) & 0xFF
+        except Exception:
+            return 0
+
+    def _has_extra_filter(self) -> bool:
+        """Check if firmware has extra filter enabled"""
+        try:
+            build_opt1 = self._get_build_opt_byte1()
+            return (build_opt1 & 0x80) != 0
+        except Exception as e:
+            LOG.error(f"Error checking extra filter flag: {e}")
             return False
 
     def _update_key_actions(self, rs: RadioSettings) -> None:
@@ -222,22 +231,12 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
         # Update programmable key actions with extended list (includes CW messages)
         self._update_key_actions(rs)
 
-        # Remove unsupported settings groups for this firmware
-        self._remove_settings_groups(rs, {
-            "dtmf",
-            "dtmfc",
-            "fm",
-        })
-
         # Check if CW firmware
         if not self._is_nr7y_cw_firmware():
             LOG.warning("CW modulator not enabled in firmware - skipping CW settings")
             return rs
 
         LOG.info("CW modulator detected - adding CW settings")
-
-        # Remove DTMF contacts if present (conflicts with CW macros)
-        self._remove_dtmf_contacts(rs)
 
         # Add CW settings group
         cw = RadioSettingGroup("cw", "CW Settings")
@@ -361,27 +360,42 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
         # Allow CW + USB (SSB) in addition to base modes
         rf.valid_modes = ["FM", "NFM", "AM", "NAM", "USB", "CW"]
 
-        # Firmware steps from frequencies.c (StepSortedIndexes)
-        rf.valid_tuning_steps = [
-            0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 1.25,
-            2.5, 5.0, 6.25, 8.33, 9.0, 10.0, 12.5,
-            15.0, 20.0, 25.0, 30.0, 50.0, 100.0,
-            125.0, 200.0, 250.0, 500.0
-        ]
-
         if hasattr(rf, "has_extra"):
             rf.has_extra = True
 
         return rf
 
+    def _get_mem_mode(self, _mem):
+        """Map firmware modulation to CHIRP mode without using bandwidth."""
+        modulation = int(_mem.modulation)
+        if modulation == MODULATION_AM:
+            return "AM"
+        if modulation == MODULATION_USB:
+            return "USB"
+        if modulation == MODULATION_CW:
+            return "CW"
+        return "FM"
+
+    def _set_mem_mode(self, _mem, mode):
+        """Set firmware modulation from CHIRP mode without changing filter bits."""
+        modulation = self._chirp_mode_to_modulation(mode)
+        if modulation is None:
+            modulation = MODULATION_FM
+        _mem.modulation = int(modulation)
+
     def get_memory_extra_fields(self):
+        filter_opts = CHANNEL_BANDWIDTH_OPTIONS if self._has_extra_filter() else CHANNEL_BANDWIDTH_OPTIONS[:2]
         return [
             RadioSetting(
-                "filter_bw",
+                "bandwidth",
                 "Filter",
-                RadioSettingValueList(CHANNEL_BANDWIDTH_OPTIONS, current_index=0)
+                RadioSettingValueList(filter_opts, current_index=0)
             )
         ]
+
+    def get_extra_fields(self):
+        """Compatibility with CHIRP builds that expect get_extra_fields()."""
+        return self.get_memory_extra_fields()
 
     def _get_memory_bounds(self):
         try:
@@ -443,23 +457,6 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
             return MODULATION_CW
         return None
 
-    def _get_channel_step_idx(self, number):
-        offset = self._get_channel_offset(number)
-        if offset is None:
-            return None
-
-        byte = self._mmap[offset + 8 + 6]
-        if isinstance(byte, (bytes, bytearray)):
-            byte = byte[0]
-        return byte
-
-    def _set_channel_step_idx(self, number, step_idx):
-        offset = self._get_channel_offset(number)
-        if offset is None:
-            return
-
-        self._mmap[offset + 8 + 6] = step_idx & 0xFF
-
     def _get_channel_attr_byte(self, number):
         offset = self._get_channel_offset(number)
         if offset is None:
@@ -481,42 +478,40 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
         attr = self._get_channel_attr_byte(number)
         if attr is None:
             return None
-        return (attr >> 5) & 0x03
+        if self._has_extra_filter():
+            return (attr >> 5) & 0x03
+        return (attr >> 1) & 0x01
 
     def _set_channel_bandwidth_idx(self, number, idx):
         attr = self._get_channel_attr_byte(number)
         if attr is None:
             return
 
-        attr = (attr & ~0x60) | ((idx & 0x03) << 5)
+        if self._has_extra_filter():
+            attr = (attr & ~0x60) | ((idx & 0x03) << 5)
+        else:
+            attr = (attr & ~0x02) | ((idx & 0x01) << 1)
         self._set_channel_attr_byte(number, attr)
-
-    def _step_idx_to_khz(self, step_idx):
-        if step_idx is None or step_idx >= len(STEP_SETTINGS_KHZ):
-            return None
-        return STEP_SETTINGS_KHZ[step_idx]
-
-    def _step_khz_to_idx(self, step_khz):
-        return STEP_KHZ_TO_IDX.get(step_khz)
 
     def get_memory(self, number):
         mem = super().get_memory(number)
 
+        filter_opts = CHANNEL_BANDWIDTH_OPTIONS if self._has_extra_filter() else CHANNEL_BANDWIDTH_OPTIONS[:2]
         bw_idx = self._get_channel_bandwidth_idx(number)
         if bw_idx is None:
             bw_idx = 0
-        if bw_idx >= len(CHANNEL_BANDWIDTH_OPTIONS):
+        if bw_idx >= len(filter_opts):
             bw_idx = 0
         bw_setting = RadioSetting(
-            "filter_bw",
+            "bandwidth",
             "Filter",
-            RadioSettingValueList(CHANNEL_BANDWIDTH_OPTIONS, current_index=bw_idx)
+            RadioSettingValueList(filter_opts, current_index=bw_idx)
         )
         if mem.extra is None:
             mem.extra = RadioSettingGroup("extra", "Extra")
         else:
             try:
-                existing = mem.extra.get("filter_bw")
+                existing = mem.extra.get("bandwidth")
                 if existing is not None:
                     mem.extra.remove(existing)
             except Exception:
@@ -525,11 +520,6 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
 
         if getattr(mem, "empty", False):
             return mem
-
-        step_idx = self._get_channel_step_idx(number)
-        step_khz = self._step_idx_to_khz(step_idx)
-        if step_khz is not None:
-            mem.tuning_step = step_khz
 
         modulation = self._get_channel_modulation(number)
         if modulation == MODULATION_USB:
@@ -543,15 +533,6 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
         if getattr(mem, "empty", False):
             return super().set_memory(mem)
 
-        desired_step = mem.tuning_step
-        try:
-            base_steps = super().get_features().valid_tuning_steps or []
-        except Exception:
-            base_steps = []
-
-        if desired_step not in base_steps and base_steps:
-            mem.tuning_step = base_steps[0]
-
         super().set_memory(mem)
 
         if isinstance(mem.number, int):
@@ -559,20 +540,16 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
             if modulation is not None:
                 self._set_channel_modulation(mem.number, modulation)
 
-            step_idx = self._step_khz_to_idx(desired_step)
-            if step_idx is not None:
-                self._set_channel_step_idx(mem.number, step_idx)
-
             if mem.extra is not None:
                 try:
-                    bw_setting = mem.extra.get("filter_bw")
+                    bw_setting = mem.extra.get("bandwidth")
                 except Exception:
                     bw_setting = None
                 if bw_setting is not None:
-                    bw_idx = CHANNEL_BANDWIDTH_OPTIONS.index(str(bw_setting.value))
+                    filter_opts = CHANNEL_BANDWIDTH_OPTIONS if self._has_extra_filter() else CHANNEL_BANDWIDTH_OPTIONS[:2]
+                    bw_idx = filter_opts.index(str(bw_setting.value))
                     self._set_channel_bandwidth_idx(mem.number, bw_idx)
-
-        mem.tuning_step = desired_step
+        
 
     def set_settings(self, settings):
         """Apply settings to radio - follows base class pattern with CW support"""
@@ -668,32 +645,6 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
                 _mem.mic_gain = int(setting.value)
             # ... base class handles all other settings through its implementation
             # We'll just let anything else pass through by calling parent on groups
-
-    def _remove_dtmf_contacts(self, rs: RadioSettings) -> None:
-        """Remove DTMF contacts group to prevent conflicts"""
-        removed = []
-        for group in list(rs):
-            if hasattr(group, 'get_name'):
-                name = group.get_name()
-                # Remove any DTMF contact groups
-                if 'contact' in name.lower() and 'dtmf' in name.lower():
-                    rs.remove(group)
-                    removed.append(name)
-        
-        if removed:
-            LOG.info(f"Removed DTMF contact groups: {removed}")
-
-    def _remove_settings_groups(self, rs: RadioSettings, names: set) -> None:
-        removed = []
-        for group in list(rs):
-            if hasattr(group, 'get_name'):
-                name = group.get_name()
-                if name in names:
-                    rs.remove(group)
-                    removed.append(name)
-
-        if removed:
-            LOG.info(f"Removed settings groups: {removed}")
 
     # ======== CW Settings Encode/Decode ========
     

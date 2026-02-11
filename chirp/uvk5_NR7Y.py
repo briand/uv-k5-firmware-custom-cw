@@ -1,5 +1,5 @@
 # uvk5_NR7Y.py
-# CHIRP driver for Quansheng UV-K5 with NR7Y CW firmware
+# chirp driver for Quansheng UV-K5 with NR7Y CW firmware
 # Supports CW modulator settings and 4 macro memories
 
 import re
@@ -17,6 +17,24 @@ from chirp.settings import (
 from chirp.drivers import uvk5
 
 LOG = logging.getLogger(__name__)
+
+# Modulation values from firmware (radio.h ModulationMode_t)
+MODULATION_FM = 0
+MODULATION_AM = 1
+MODULATION_USB = 2
+MODULATION_CW = 3
+
+# Step settings from firmware (frequencies.h STEP_Setting_t)
+STEP_SETTINGS_KHZ = [
+    2.5, 5.0, 6.25, 10.0, 12.5, 25.0, 8.33,
+    0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 1.25,
+    9.0, 15.0, 20.0, 30.0, 50.0, 100.0,
+    125.0, 200.0, 250.0, 500.0
+]
+STEP_KHZ_TO_IDX = {v: i for i, v in enumerate(STEP_SETTINGS_KHZ)}
+
+# Channel bandwidth options (radio.h)
+CHANNEL_BANDWIDTH_OPTIONS = ["Wide", "Narrow", "6K", "1.7K"]
 
 # CW Macro constants
 CW_MACRO_ADDRS = [0x1C00, 0x1C30, 0x1C60, 0x1C90]
@@ -204,6 +222,13 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
         # Update programmable key actions with extended list (includes CW messages)
         self._update_key_actions(rs)
 
+        # Remove unsupported settings groups for this firmware
+        self._remove_settings_groups(rs, {
+            "dtmf",
+            "dtmfc",
+            "fm",
+        })
+
         # Check if CW firmware
         if not self._is_nr7y_cw_firmware():
             LOG.warning("CW modulator not enabled in firmware - skipping CW settings")
@@ -330,6 +355,225 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
         LOG.info(f"Added CW settings group with {len(list(cw))} settings")
         return rs
 
+    def get_features(self):
+        rf = super().get_features()
+
+        # Allow CW + USB (SSB) in addition to base modes
+        rf.valid_modes = ["FM", "NFM", "AM", "NAM", "USB", "CW"]
+
+        # Firmware steps from frequencies.c (StepSortedIndexes)
+        rf.valid_tuning_steps = [
+            0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 1.25,
+            2.5, 5.0, 6.25, 8.33, 9.0, 10.0, 12.5,
+            15.0, 20.0, 25.0, 30.0, 50.0, 100.0,
+            125.0, 200.0, 250.0, 500.0
+        ]
+
+        if hasattr(rf, "has_extra"):
+            rf.has_extra = True
+
+        return rf
+
+    def get_memory_extra_fields(self):
+        return [
+            RadioSetting(
+                "filter_bw",
+                "Filter",
+                RadioSettingValueList(CHANNEL_BANDWIDTH_OPTIONS, current_index=0)
+            )
+        ]
+
+    def _get_memory_bounds(self):
+        try:
+            rf = self.get_features()
+            if rf and rf.memory_bounds:
+                return rf.memory_bounds
+        except Exception:
+            pass
+        return (1, 200)
+
+    def _get_channel_offset(self, number):
+        if not isinstance(number, int):
+            return None
+        if number is None:
+            return None
+
+        low, high = self._get_memory_bounds()
+        if number < low or number > high:
+            return None
+
+        offset = (number - low) * 16
+        if offset + 11 >= len(self._mmap):
+            return None
+
+        return offset
+
+    def _get_channel_modulation(self, number):
+        offset = self._get_channel_offset(number)
+        if offset is None:
+            return None
+
+        byte = self._mmap[offset + 11]
+        if isinstance(byte, (bytes, bytearray)):
+            byte = byte[0]
+        return (byte >> 4) & 0x0F
+
+    def _set_channel_modulation(self, number, modulation):
+        offset = self._get_channel_offset(number)
+        if offset is None:
+            return
+
+        byte = self._mmap[offset + 11]
+        if isinstance(byte, (bytes, bytearray)):
+            byte = byte[0]
+        self._mmap[offset + 11] = (byte & 0x0F) | ((modulation & 0x0F) << 4)
+
+    def _chirp_mode_to_modulation(self, mode):
+        if not mode:
+            return None
+
+        mode = str(mode).upper()
+        if mode in ("FM", "NFM", "NAM"):
+            return MODULATION_FM
+        if mode == "AM":
+            return MODULATION_AM
+        if mode == "USB":
+            return MODULATION_USB
+        if mode == "CW":
+            return MODULATION_CW
+        return None
+
+    def _get_channel_step_idx(self, number):
+        offset = self._get_channel_offset(number)
+        if offset is None:
+            return None
+
+        byte = self._mmap[offset + 8 + 6]
+        if isinstance(byte, (bytes, bytearray)):
+            byte = byte[0]
+        return byte
+
+    def _set_channel_step_idx(self, number, step_idx):
+        offset = self._get_channel_offset(number)
+        if offset is None:
+            return
+
+        self._mmap[offset + 8 + 6] = step_idx & 0xFF
+
+    def _get_channel_attr_byte(self, number):
+        offset = self._get_channel_offset(number)
+        if offset is None:
+            return None
+
+        byte = self._mmap[offset + 8 + 4]
+        if isinstance(byte, (bytes, bytearray)):
+            byte = byte[0]
+        return byte
+
+    def _set_channel_attr_byte(self, number, value):
+        offset = self._get_channel_offset(number)
+        if offset is None:
+            return
+
+        self._mmap[offset + 8 + 4] = value & 0xFF
+
+    def _get_channel_bandwidth_idx(self, number):
+        attr = self._get_channel_attr_byte(number)
+        if attr is None:
+            return None
+        return (attr >> 5) & 0x03
+
+    def _set_channel_bandwidth_idx(self, number, idx):
+        attr = self._get_channel_attr_byte(number)
+        if attr is None:
+            return
+
+        attr = (attr & ~0x60) | ((idx & 0x03) << 5)
+        self._set_channel_attr_byte(number, attr)
+
+    def _step_idx_to_khz(self, step_idx):
+        if step_idx is None or step_idx >= len(STEP_SETTINGS_KHZ):
+            return None
+        return STEP_SETTINGS_KHZ[step_idx]
+
+    def _step_khz_to_idx(self, step_khz):
+        return STEP_KHZ_TO_IDX.get(step_khz)
+
+    def get_memory(self, number):
+        mem = super().get_memory(number)
+
+        bw_idx = self._get_channel_bandwidth_idx(number)
+        if bw_idx is None:
+            bw_idx = 0
+        if bw_idx >= len(CHANNEL_BANDWIDTH_OPTIONS):
+            bw_idx = 0
+        bw_setting = RadioSetting(
+            "filter_bw",
+            "Filter",
+            RadioSettingValueList(CHANNEL_BANDWIDTH_OPTIONS, current_index=bw_idx)
+        )
+        if mem.extra is None:
+            mem.extra = RadioSettingGroup("extra", "Extra")
+        else:
+            try:
+                existing = mem.extra.get("filter_bw")
+                if existing is not None:
+                    mem.extra.remove(existing)
+            except Exception:
+                pass
+        mem.extra.append(bw_setting)
+
+        if getattr(mem, "empty", False):
+            return mem
+
+        step_idx = self._get_channel_step_idx(number)
+        step_khz = self._step_idx_to_khz(step_idx)
+        if step_khz is not None:
+            mem.tuning_step = step_khz
+
+        modulation = self._get_channel_modulation(number)
+        if modulation == MODULATION_USB:
+            mem.mode = "USB"
+        elif modulation == MODULATION_CW:
+            mem.mode = "CW"
+
+        return mem
+
+    def set_memory(self, mem):
+        if getattr(mem, "empty", False):
+            return super().set_memory(mem)
+
+        desired_step = mem.tuning_step
+        try:
+            base_steps = super().get_features().valid_tuning_steps or []
+        except Exception:
+            base_steps = []
+
+        if desired_step not in base_steps and base_steps:
+            mem.tuning_step = base_steps[0]
+
+        super().set_memory(mem)
+
+        if isinstance(mem.number, int):
+            modulation = self._chirp_mode_to_modulation(mem.mode)
+            if modulation is not None:
+                self._set_channel_modulation(mem.number, modulation)
+
+            step_idx = self._step_khz_to_idx(desired_step)
+            if step_idx is not None:
+                self._set_channel_step_idx(mem.number, step_idx)
+
+            if mem.extra is not None:
+                try:
+                    bw_setting = mem.extra.get("filter_bw")
+                except Exception:
+                    bw_setting = None
+                if bw_setting is not None:
+                    bw_idx = CHANNEL_BANDWIDTH_OPTIONS.index(str(bw_setting.value))
+                    self._set_channel_bandwidth_idx(mem.number, bw_idx)
+
+        mem.tuning_step = desired_step
+
     def set_settings(self, settings):
         """Apply settings to radio - follows base class pattern with CW support"""
         _mem = self._memobj
@@ -438,6 +682,18 @@ class UVK5_NR7Y(uvk5.UVK5RadioBase):
         
         if removed:
             LOG.info(f"Removed DTMF contact groups: {removed}")
+
+    def _remove_settings_groups(self, rs: RadioSettings, names: set) -> None:
+        removed = []
+        for group in list(rs):
+            if hasattr(group, 'get_name'):
+                name = group.get_name()
+                if name in names:
+                    rs.remove(group)
+                    removed.append(name)
+
+        if removed:
+            LOG.info(f"Removed settings groups: {removed}")
 
     # ======== CW Settings Encode/Decode ========
     

@@ -600,7 +600,7 @@ void RADIO_SetupRegisters(bool switchToForeground)
 	#else
 		Frequency = gRxVfo->pRX->Frequency
 	#if ENABLE_CW_MODULATOR
-		- (gRxVfo->Modulation == MODULATION_CW ? gEeprom.CW_TONE_FREQUENCY : 0) // CW BFO offset
+		- (gRxVfo->Modulation == MODULATION_CW && !gCW_CrossMode ? gEeprom.CW_TONE_FREQUENCY : 0) // CW BFO offset
 		;
 			// char buf[64];
 			// sprintf_(buf, "RX freq: %d Hz, offset: %d Hz\r\n", gRxVfo->pRX->Frequency * 10, (10 * gEeprom.CW_TONE_FREQUENCY));
@@ -822,7 +822,13 @@ void RADIO_SetTxParameters(void)
 	#endif
 	}	
 
-	BK4819_SetFrequency(gCurrentVfo->pTX->Frequency);
+	uint32_t tx_frequency = gCurrentVfo->pTX->Frequency;
+#ifdef ENABLE_CW_MODULATOR
+	if (gTxVfo->Modulation == MODULATION_CW && gCW_CrossMode) {
+		tx_frequency += gEeprom.CW_TONE_FREQUENCY;
+	}
+#endif
+	BK4819_SetFrequency(tx_frequency);
 
 	// TX compressor
 	BK4819_SetCompander((gRxVfo->Modulation == MODULATION_FM && (gRxVfo->Compander == 1 || gRxVfo->Compander >= 3)) ? gRxVfo->Compander : 0);

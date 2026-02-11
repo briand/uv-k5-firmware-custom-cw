@@ -715,6 +715,10 @@ void UI_DisplayMain(void)
 		// show the TX/RX reverse symbol
 		if (vfoInfo->FrequencyReverse)
 			UI_PrintStringSmallNormal("R", LCD_WIDTH + 62, 0, line + 1);
+		#ifdef ENABLE_CW_MODULATOR
+		else if (vfoInfo->Modulation == MODULATION_CW && gCW_CrossMode)
+			UI_PrintStringSmallNormal("X", LCD_WIDTH + 62, 0, line + 1);
+		#endif
 
 		if (vfoInfo->CHANNEL_BANDWIDTH == BANDWIDTH_NARROW)
 			UI_PrintStringSmallNormal("N", LCD_WIDTH + 70, 0, line + 1);		

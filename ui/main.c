@@ -698,6 +698,11 @@ void UI_DisplayMain(void)
 		}
 		UI_PrintStringSmallNormal(s, LCD_WIDTH + 24, 0, line + 1);
 
+#ifdef ENABLE_CW_MODULATOR
+		if (vfoInfo->Modulation == MODULATION_CW && gCW_CrossMode)
+			UI_PrintStringSmallNormal("x", LCD_WIDTH + 40, 0, line + 1);
+#endif
+
 		if (state == VFO_STATE_NORMAL || state == VFO_STATE_ALARM)
 		{	// show the TX power
 			const char pwr_list[][2] = {"L","M","H"};
@@ -715,10 +720,6 @@ void UI_DisplayMain(void)
 		// show the TX/RX reverse symbol
 		if (vfoInfo->FrequencyReverse)
 			UI_PrintStringSmallNormal("R", LCD_WIDTH + 62, 0, line + 1);
-		#ifdef ENABLE_CW_MODULATOR
-		else if (vfoInfo->Modulation == MODULATION_CW && gCW_CrossMode)
-			UI_PrintStringSmallNormal("X", LCD_WIDTH + 62, 0, line + 1);
-		#endif
 
 		if (vfoInfo->CHANNEL_BANDWIDTH == BANDWIDTH_NARROW)
 			UI_PrintStringSmallNormal("N", LCD_WIDTH + 70, 0, line + 1);		

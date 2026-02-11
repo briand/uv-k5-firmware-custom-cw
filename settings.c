@@ -805,6 +805,9 @@ buf[1] = 0
 #ifdef ENABLE_CW_MODULATOR
 	| (1 << 6)
 #endif
+#ifdef ENABLE_EXTRA_FILTER
+	| (1 << 7)
+#endif
 ;
 	EEPROM_WriteBuffer(0x1FF0, buf);
 }

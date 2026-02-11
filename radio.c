@@ -890,6 +890,8 @@ void RADIO_SetModulation(ModulationMode_t modulation)
 			break;
 #ifdef ENABLE_CW_MODULATOR
 		case MODULATION_CW:
+			gMonitor = true;  // keep the audio from turning off at the TX->RX transition, so we don't hit mute sending bug
+			[[fallthrough]];
 #endif	
 		case MODULATION_USB:
 			mod = BK4819_AF_BASEBAND2;

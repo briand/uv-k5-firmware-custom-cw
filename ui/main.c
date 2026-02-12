@@ -698,6 +698,11 @@ void UI_DisplayMain(void)
 		}
 		UI_PrintStringSmallNormal(s, LCD_WIDTH + 24, 0, line + 1);
 
+#ifdef ENABLE_CW_MODULATOR
+		if (vfoInfo->Modulation == MODULATION_CW && gCW_CrossMode)
+			UI_PrintStringSmallNormal("x", LCD_WIDTH + 40, 0, line + 1);
+#endif
+
 		if (state == VFO_STATE_NORMAL || state == VFO_STATE_ALARM)
 		{	// show the TX power
 			const char pwr_list[][2] = {"L","M","H"};

@@ -237,6 +237,10 @@ static void processFKeyFunction(const KEY_Code_t Key, const bool beep)
 			break;
 
 		case KEY_8:
+			#ifdef ENABLE_CW_MODULATOR
+			if (gTxVfo->Modulation == MODULATION_CW)
+				break;
+			#endif
 			gTxVfo->FrequencyReverse = gTxVfo->FrequencyReverse == false;
 			gRequestSaveChannel = 1;
 			break;
@@ -278,6 +282,24 @@ static void MAIN_Key_DIGITS(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 					gInputBoxIndex        = 0;
 					gRequestDisplayScreen = DISPLAY_MAIN;
 				}
+
+				#ifndef ENABLE_VOX
+				if (Key == KEY_7) {
+					gWasFKeyPressed = false;
+					gUpdateStatus   = true;
+					ACTION_SwitchFilter();
+					return;
+				}
+				#endif
+
+				#ifdef ENABLE_CW_MODULATOR
+				if (Key == KEY_8 && gTxVfo->Modulation == MODULATION_CW) {
+					gCW_CrossMode = !gCW_CrossMode;
+					gFlagReconfigureVfos = true;
+					gUpdateDisplay = true;
+					return;
+				}
+				#endif
 
 				gWasFKeyPressed = false;
 				gUpdateStatus   = true;
@@ -650,7 +672,7 @@ static void MAIN_Key_UP_DOWN(bool bKeyPressed, bool bKeyHeld, int8_t Direction)
 				gTxVfo->freq_config_RX.Frequency = frequency;
 				BK4819_SetFrequency(frequency
 				#ifdef ENABLE_CW_MODULATOR
-					- (gTxVfo->Modulation == MODULATION_CW)? 
+					- (gTxVfo->Modulation == MODULATION_CW && !gCW_CrossMode)? 
 						(gEeprom.CW_TONE_FREQUENCY * 10) : 0 // CW BFO offset (10s of hz)
 				#endif
 				);

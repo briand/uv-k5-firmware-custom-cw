@@ -243,7 +243,11 @@ static void HandleIncoming(void)
 	}
 #endif
 
-	APP_StartListening(gMonitor ? FUNCTION_MONITOR : FUNCTION_RECEIVE);
+	APP_StartListening(gMonitor 
+#ifdef ENABLE_CW_MODULATOR
+			|| gCurrentVfo->Modulation == MODULATION_CW
+#endif
+		? FUNCTION_MONITOR : FUNCTION_RECEIVE);
 }
 
 static void HandleReceive(void)

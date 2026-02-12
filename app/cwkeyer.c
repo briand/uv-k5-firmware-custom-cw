@@ -134,7 +134,7 @@ static void CW_KeyerDeinit()
 {
     // ADC does the port ground deinit too
     CW_ConfigureADCforCECPaddles(false);
-    CW_ConfigurePortRing(false);
+    CW_ConfigurePortRing(false); // make sure PB15 is an input with no pullup, to avoid affecting the line if shorted to mic (keyer rework)
 
     gCW_KeyerUsingSD1 = false;
     s_enable_keyer = false;
@@ -399,12 +399,10 @@ void CW_PlaybackIndicatorDeadline(void)
 // Check keyer inputs before mode change
 // Returns true if inputs are valid (released), false to abort mode change
 bool CW_CheckKeyerInputs(uint8_t new_mode)
-{
-    // Handkey mode doesn't need validation (no keyer flag set)
-    if (new_mode & CW_KEY_FLAG_NO_KEYER) {
-        return true;
-    }
-    
+{    
+    // hard deconfig, get all pins in a known state
+    CW_KeyerDeinit();
+
     // Determine if we need to configure port pins for this mode (use bit flags)
     bool uses_port_ground = (new_mode & CW_KEY_FLAG_PORT_GROUND);
     bool uses_port_ring = (new_mode & CW_KEY_FLAG_PORT_RING);
@@ -415,9 +413,6 @@ bool CW_CheckKeyerInputs(uint8_t new_mode)
         return true;
     }
     
-    // the port keyer modes interact poorly, so we have to deconfigure first
-    CW_KeyerReconfigure(false);
-
 #if CW_KEYER_DEBUG
     UART_Send("Checking CW keyer inputs\r\n", 26);
 #endif

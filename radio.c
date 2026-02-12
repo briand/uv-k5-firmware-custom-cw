@@ -884,8 +884,6 @@ void RADIO_SetModulation(ModulationMode_t modulation)
 			break;
 #ifdef ENABLE_CW_MODULATOR
 		case MODULATION_CW:
-			gMonitor = true;
-			[[fallthrough]];
 #endif	
 		case MODULATION_USB:
 			mod = BK4819_AF_BASEBAND2;

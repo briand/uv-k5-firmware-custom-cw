@@ -329,6 +329,30 @@ void RADIO_ConfigureChannel(const unsigned int VFO, const unsigned int configure
 			pVfo->DTMF_PTT_ID_TX_MODE  = pttId < ARRAY_SIZE(gSubMenu_PTT_ID) ? pttId : PTT_ID_OFF;
 		}
 
+		#ifdef ENABLE_CW_MODULATOR
+			// CW memory channels do not use these features; ignore stored values.
+			if (pVfo->Modulation == MODULATION_CW)
+			{
+				// No CTCSS/DCS in CW
+				pVfo->freq_config_RX.CodeType = CODE_TYPE_OFF;
+				pVfo->freq_config_TX.CodeType = CODE_TYPE_OFF;
+				pVfo->freq_config_RX.Code     = 0;
+				pVfo->freq_config_TX.Code     = 0;
+
+				// No scrambler in CW
+				pVfo->SCRAMBLING_TYPE = 0;
+
+				// No PTT ID or DTMF decode in CW
+				pVfo->DTMF_PTT_ID_TX_MODE = PTT_ID_OFF;
+				#ifdef ENABLE_DTMF_CALLING
+					pVfo->DTMF_DECODING_ENABLE = false;
+				#endif
+
+				// No reverse-frequency mode in CW
+				pVfo->FrequencyReverse = false;
+			}
+		#endif
+
 		// ***************
 
 		struct {
@@ -393,7 +417,12 @@ void RADIO_ConfigureChannel(const unsigned int VFO, const unsigned int configure
 			pConfig->Frequency = 43300000;
 	}
 
-	pVfo->Compander = att.compander;
+	#ifdef ENABLE_CW_MODULATOR
+		if (pVfo->Modulation == MODULATION_CW)
+			pVfo->Compander = 0;
+		else
+	#endif
+		pVfo->Compander = att.compander;
 
 	RADIO_ConfigureSquelchAndOutputPower(pVfo);
 }

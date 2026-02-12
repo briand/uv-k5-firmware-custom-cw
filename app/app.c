@@ -243,9 +243,13 @@ static void HandleIncoming(void)
 	}
 #endif
 
-	APP_StartListening(gMonitor 
 #ifdef ENABLE_CW_MODULATOR
-			|| gCurrentVfo->Modulation == MODULATION_CW
+	gMonitorTemp = (gCurrentVfo->Modulation == MODULATION_CW ||
+			       gCurrentVfo->Modulation == MODULATION_USB);
+#endif
+	APP_StartListening(gMonitor
+#ifdef ENABLE_CW_MODULATOR
+			|| gMonitorTemp
 #endif
 		? FUNCTION_MONITOR : FUNCTION_RECEIVE);
 }

@@ -100,7 +100,7 @@ static bool s_play_space_pending = false;  // indicates next char should be show
 // Reconfigure requested (apply at idle or after gap)
 static volatile bool s_cfg_dirty = true;
 
-// Keyer enabled flag
+// Keyer enabled flag - this means ALL CW keying, not just paddle FSM.
 static volatile bool s_enable_keyer = false;
 
 #ifdef ENABLE_FLASHLIGHT
@@ -177,6 +177,7 @@ static void CW_KeyerInit()
 #if CW_KEYER_DEBUG
     UART_Send("keyer init done\r\n", 17);
 #endif
+    // enabled even if we only use PTT handkey
     s_enable_keyer = true;
 }
 
@@ -187,8 +188,6 @@ void CW_KeyerReconfigure(bool enable)
 #ifdef CW_KEYER_DEBUG
          UART_Send("CW_KeyerReconfigure: disable requested\r\n", 38);
 #endif
-        if(!s_enable_keyer) 
-            return;  // already disabled
 
         // Disable keyer immediately and put ports back to normal if needed
         s_KeyerFSMState = CWK_STATE_IDLE;
@@ -539,6 +538,12 @@ CW_Action_t CW_HandleState(void)
     if(!s_enable_keyer)
         return CW_ACTION_NONE;
 
+    // Handkey mode needs immediate response even if called faster than 1ms,
+    // otherwise APP_Update() will see CW_ACTION_NONE and auto-suspend TX.
+    if (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_NO_KEYER) {
+        return ptt_action();
+    }
+
     const uint16_t cur_count = (uint16_t)TIMERBASE0_LOW_CNT;
     const uint16_t delta_since_last = timer_jiffies_since(s_last_count);
     if (delta_since_last < TICKS_PER_MS) {
@@ -561,17 +566,6 @@ CW_Action_t CW_HandleState(void)
         last_logged_state = s_KeyerFSMState;
     }
 #endif
-
-    // Check if keyer is disabled (handkey modes have NO_KEYER flag set)
-    if (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_NO_KEYER) {
-#if CW_KEYER_DEBUG
-        static uint32_t handkey_log_count = 0;
-        if (++handkey_log_count % 1000 == 0) {
-            UART_Send("CW in handkey mode\r\n", 20);
-        }
-#endif
-        return ptt_action();
-    }
 
     // Input struct - will be sampled at appropriate times in each state
     CW_Input in = {0};

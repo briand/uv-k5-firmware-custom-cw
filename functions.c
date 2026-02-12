@@ -297,18 +297,19 @@ void FUNCTION_Select(FUNCTION_Type_t Function)
 			break;
 
 		case FUNCTION_MONITOR:
-			gMonitor = true;
+			#ifdef ENABLE_CW_MODULATOR
+				if (!gMonitorTemp)
+					gMonitor = true;
+				gMonitorTemp = false;
+			#else
+				gMonitor = true;
+			#endif
 			break;
 
 		case FUNCTION_INCOMING:
 		case FUNCTION_RECEIVE:
 		case FUNCTION_BAND_SCOPE:
 		default:
-		// briand TODO
-			// #ifdef ENABLE_CW_MODULATOR
-			// if (gRxVfo->Modulation == MODULATION_CW)
-			// 	gMonitor = true;
-			// #endif
 			break;
 	}
 

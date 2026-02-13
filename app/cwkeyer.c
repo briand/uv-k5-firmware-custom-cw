@@ -1,4 +1,4 @@
- /* Copyright 2026 NR7Y
+/* Copyright 2026 NR7Y
  * https://github.com/briand
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -103,6 +103,9 @@ static volatile bool s_cfg_dirty = true;
 // Keyer enabled flag - this means ALL CW keying, not just paddle FSM.
 static volatile bool s_enable_keyer = false;
 
+// Local runtime reset helper
+static void CW_KeyerResetRuntime(void);
+
 #ifdef ENABLE_FLASHLIGHT
 bool gCW_FlashlightSending = false;
 #endif
@@ -136,6 +139,7 @@ static void CW_KeyerDeinit()
     CW_ConfigureADCforCECPaddles(false);
     CW_ConfigurePortRing(false); // make sure PB15 is an input with no pullup, to avoid affecting the line if shorted to mic (keyer rework)
 
+    gCW_KeyerManagesPtt = false;
     gCW_KeyerUsingSD1 = false;
     s_enable_keyer = false;
     s_last_handkey_ptt = false;
@@ -144,63 +148,36 @@ static void CW_KeyerDeinit()
 // Initialize keyer from gEeprom settings
 static void CW_KeyerInit()
 {
+    CW_KeyerResetRuntime();
     CW_UpdateWPM();
 
-    // Load settings from gEeprom
-
-    // Configure port pins based on bit flags
-    bool uses_port_ground = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_PORT_GROUND);
-    bool uses_port_ring = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_PORT_RING);
-    bool uses_adc = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_ADC);
-#if CW_KEYER_DEBUG
-    bool is_handkey = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_NO_KEYER);
-    bool uses_button = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_SIDE1);
-    char buf[120];
-    sprintf_(buf, "CW_Init: mode=0x%02X handkey=%d side=%d pG=%d pR=%d rev=%d\r\n",
-             gEeprom.CW_KEY_INPUT, is_handkey, uses_button, uses_port_ground, uses_port_ring, (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_REVERSED));
-    UART_Send(buf, strlen(buf));
-#endif
+    bool uses_port_ground = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_PORT_GROUND) != 0;
+    bool uses_port_ring   = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_PORT_RING) != 0;
+    bool uses_adc         = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_ADC) != 0;
 
     CW_ConfigurePortRing(uses_port_ring);
     CW_ConfigureADCforCECPaddles(uses_adc);
-    // CEC false will turn off ground, so we only need to explicitly enable if not using CEC but do need port ground
-    if(!uses_adc && uses_port_ground)
+    if (!uses_adc && uses_port_ground)
         CW_ConfigurePortGround(true);
 
-    gCW_KeyerUsingSD1 = gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_SIDE1;
-
-    s_last_count         = (uint16_t)TIMERBASE0_LOW_CNT;
-    s_active_is_dit    = false;
-    CW_HW_ResetKeySamples();
-
-    s_KeyerFSMState = CWK_STATE_IDLE;
+    gCW_KeyerUsingSD1 = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_SIDE1) != 0;
     s_cfg_dirty = false;
-#if CW_KEYER_DEBUG
-    UART_Send("keyer init done\r\n", 17);
-#endif
-    // enabled even if we only use PTT handkey
     s_enable_keyer = true;
+    gCW_KeyerManagesPtt = true;
 }
 
-// public entrypoint to cause configuration
 void CW_KeyerReconfigure(bool enable)
 {
-    if(!enable) {
-#ifdef CW_KEYER_DEBUG
-         UART_Send("CW_KeyerReconfigure: disable requested\r\n", 38);
-#endif
+    // Always tear down first so no stale FSM state survives.
+    CW_KeyerDeinit();
 
-        // Disable keyer immediately and put ports back to normal if needed
-        s_KeyerFSMState = CWK_STATE_IDLE;
-        CW_KeyerDeinit();
-        gCW_KeyerUsesPTT = false;
+    if (!enable) {
         s_cfg_dirty = false;
         return;
     }
-    s_cfg_dirty = true;
-#if CW_KEYER_DEBUG
-    UART_Send("keyer marked for reconfig\r\n", 27);
-#endif
+
+    // Apply immediately, don't wait for idle.
+    CW_KeyerInit();
 }
 
 // --- Macro playback API implementation ---
@@ -545,7 +522,7 @@ CW_Action_t CW_HandleState(void)
 #endif
 
     // don't start the keyer if we're in tech (hidden menu) mode
-    if (s_cfg_dirty && s_KeyerFSMState == CWK_STATE_IDLE && !gF_LOCK) {
+    if (s_cfg_dirty && s_KeyerFSMState == CWK_STATE_IDLE) {
         CW_KeyerInit();
     }
 
@@ -560,6 +537,17 @@ CW_Action_t CW_HandleState(void)
         return CW_ACTION_NONE;
     }
     s_last_count = cur_count;
+
+    // Check if keyer is disabled (handkey modes have NO_KEYER flag set)
+    if (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_NO_KEYER) {
+#if CW_KEYER_DEBUG
+        static uint32_t handkey_log_count = 0;
+        if (++handkey_log_count % 1000 == 0) {
+            UART_Send("CW in handkey mode\r\n", 20);
+        }
+#endif
+        return ptt_action();
+    }
 
 #if CW_KEYER_DEBUG
     // Log state changes
@@ -829,4 +817,19 @@ CW_Action_t CW_HandleState(void)
 	}
 
 	return action;
+}
+
+static void CW_KeyerResetRuntime(void)
+{
+    s_KeyerFSMState = CWK_STATE_IDLE;
+
+    s_last_count = (uint16_t)TIMERBASE0_LOW_CNT;
+    s_elem_start_count = s_last_count;
+
+    s_active_is_dit = false;
+    s_pending_alternate = false;
+    s_last_handkey_ptt = false;
+
+    // clear any stale edge memory
+    CW_HW_ResetKeySamples();
 }

@@ -52,7 +52,7 @@ ENABLE_UART_RW_BK_REGS        ?= 0
 
 # ---- COMPILER/LINKER OPTIONS ----
 ENABLE_CLANG                  ?= 0
-ENABLE_SWD                    ?= 0
+ENABLE_SWD                    ?= 1
 ENABLE_OVERLAY                ?= 0
 ENABLE_LTO                    ?= 1
 ENABLE_MAP                    ?= 0

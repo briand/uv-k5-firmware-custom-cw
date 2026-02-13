@@ -315,7 +315,6 @@ void CW_ConfigureADCforCECPaddles(bool enable)
 {
     //UART_Send("adc init...", strlen("adc init..."));
     if (enable) {
-        gCW_KeyerUsesPTT = true;
 
         // Enable ADC on PA8 (SARADC CH3) and configure input buffer/pulldown
         PORTCON_PORTA_SEL1 = (PORTCON_PORTA_SEL1 & ~PORTCON_PORTA_SEL1_A8_MASK) | PORTCON_PORTA_SEL1_A8_BITS_SARADC_CH3;
@@ -324,9 +323,6 @@ void CW_ConfigureADCforCECPaddles(bool enable)
         GPIOC->DIR = (GPIOC->DIR & ~GPIO_DIR_5_MASK) | GPIO_DIR_5_BITS_OUTPUT;
         GPIO_ClearBit(&GPIOC->DATA, GPIOC_PIN_PTT);
     } else {
-
-        gCW_KeyerUsesPTT = false;
-
         // return PA8 to UART
         CW_ConfigurePortGround(false);
 

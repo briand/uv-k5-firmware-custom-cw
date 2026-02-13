@@ -42,7 +42,7 @@
 #include "settings.h"
 #include "ui/status.h"
 #include "ui/ui.h"
-
+#include "driver/uart.h"
 FUNCTION_Type_t gCurrentFunction;
 
 bool FUNCTION_IsRx()
@@ -141,6 +141,8 @@ void FUNCTION_PowerSave() {
 
 void FUNCTION_Transmit()
 {
+	
+    UART_Send("function_transmit\r\n", 19);   // briand TODO remove
 	// if DTMF is enabled when TX'ing, it changes the TX audio filtering !! .. 1of11
 	BK4819_DisableDTMF();
 
@@ -233,7 +235,7 @@ void FUNCTION_Transmit_CW()
 {
 	// Mark CW TX in progress and clear suspend counter
 	gCW_State = CW_TRANSMITTING;
-	gCW_SuspendCountdown_10ms = 0;
+	gCW_SuspendCounter_10ms = 0;
 	
 	gUpdateStatus = true;
 

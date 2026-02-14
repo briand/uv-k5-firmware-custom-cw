@@ -84,7 +84,7 @@ void CW_AppUpdate(void)
 		{
 			UART_Send("!!! CW Auto-auto Suspend\r\n", 21);
 			RADIO_CW_Suspend();
-			gCW_SuspendCounter_1ms = cw_suspend_count_1ms;
+			gCW_SuspendCounter_1ms = cw_suspend_limit_1ms;
 		}
 		return;
 	}
@@ -175,13 +175,11 @@ void CW_AppUpdate(void)
 			gPttIsPressed = true;
 			gTxTimerCountdown_500ms = 0;
 
-			// if hold arrives while suspended, resume once
+			// if hold arrives while suspended (shouldn't happen), resume once
 			if (gCW_State == CW_SUSPENDED) {
 				RADIO_CW_BeginResume();
 			}
-			if (gCW_State != CW_INACTIVE) {
-				gCW_SuspendCounter_1ms = 0;
-			}
+			gCW_SuspendCounter_1ms = 0;
 		break;
 
 		case CW_ACTION_NONE:
@@ -192,7 +190,7 @@ void CW_AppUpdate(void)
 	// ---- suspend timeout → end TX ----
 	if (gCW_State == CW_SUSPENDED)
 	{
-		if (++gCW_SuspendCounter_1ms >= cw_suspend_count_1ms) {
+		if (++gCW_SuspendCounter_1ms >= cw_suspend_limit_1ms) {
 			CW_EndTxNow();
 		}
 	}

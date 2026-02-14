@@ -237,6 +237,7 @@ void FUNCTION_Transmit_CW()
 	
 	gUpdateStatus = true;
 
+	AUDIO_AudioPathOn();  // briand TODO revisit for audio pops
 	GUI_DisplayScreen();
 	
 	// if DTMF is enabled when TX'ing, it changes the TX audio filtering !! .. 1of11
@@ -245,7 +246,6 @@ void FUNCTION_Transmit_CW()
 	// removed all the DTMF calling code, not needed for CW
 
 	RADIO_SetTxParameters();
-
 	// turn the Green LED off
 	BK4819_ToggleGpioOut(BK4819_GPIO6_PIN2_GREEN, false);
 
@@ -253,7 +253,7 @@ void FUNCTION_Transmit_CW()
 	if (gSetting_backlight_on_tx_rx & BACKLIGHT_ON_TR_TX) {
 		BACKLIGHT_TurnOn();
 	}
-	
+
 	// Don't send AF to RF during CW
 	BK4819_EnterTxMute();	
 	BK4819_WriteRegister(BK4819_REG_70,
@@ -261,9 +261,7 @@ void FUNCTION_Transmit_CW()
 		(gEeprom.CW_SIDETONE_LEVEL << BK4819_REG_70_SHIFT_TONE1_TUNING_GAIN));
 	BK4819_SetAF(BK4819_AF_ALAM);
 
-	AUDIO_AudioPathOn();  // briand TODO revisit for audio pops
 	gEnableSpeaker = true;
-	
 	RADIO_CW_BeginResume();
 }
 #endif

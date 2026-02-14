@@ -103,13 +103,47 @@ static volatile bool s_cfg_dirty = true;
 // Keyer enabled flag - this means ALL CW keying, not just paddle FSM.
 static volatile bool s_enable_keyer = false;
 
-// Local runtime reset helper
-static void CW_KeyerResetRuntime(void);
-
 #ifdef ENABLE_FLASHLIGHT
 bool gCW_FlashlightSending = false;
 #endif
 
+static void CW_KeyerResetRuntime(void)
+{
+    s_KeyerFSMState = CWK_STATE_IDLE;
+
+    s_last_count = (uint16_t)TIMERBASE0_LOW_CNT;
+    s_elem_start_count = s_last_count;
+
+    s_active_is_dit = false;
+    s_pending_alternate = false;
+    s_last_handkey_ptt = false;
+
+    // clear any stale edge memory
+    CW_HW_ResetKeySamples();
+}
+
+// Called when changing to non-CW mode
+static void CW_KeyerDeinit()
+{
+    // ADC deinit performs the port ground deinit too
+    CW_ConfigureADCforCECPaddles(false);
+    CW_ConfigurePortRing(false); // make sure PB15 is an input with no pullup, to avoid affecting the line if shorted to mic (keyer rework)
+
+    gCW_KeyerManagesPtt = false;
+    gCW_KeyerUsingSD1 = false;
+    s_enable_keyer = false;
+}
+
+void CW_KeyerReconfigure(bool enable)
+{
+    if (!enable) { 
+        CW_KeyerDeinit();
+        s_cfg_dirty = false;
+        return;
+    }
+
+    s_cfg_dirty = true; // Defer init until idle or gap
+}
 
 void CW_UpdateWPM()
 {
@@ -132,19 +166,6 @@ void CW_UpdateWPM()
 #endif
 }
 
-// Called when changing to non-CW mode
-static void CW_KeyerDeinit()
-{
-    // ADC deinit performs the port ground deinit too
-    CW_ConfigureADCforCECPaddles(false);
-    CW_ConfigurePortRing(false); // make sure PB15 is an input with no pullup, to avoid affecting the line if shorted to mic (keyer rework)
-
-    gCW_KeyerManagesPtt = false;
-    gCW_KeyerUsingSD1 = false;
-    s_enable_keyer = false;
-    s_last_handkey_ptt = false;
-}
-
 // Initialize keyer from gEeprom settings
 static void CW_KeyerInit()
 {
@@ -164,20 +185,6 @@ static void CW_KeyerInit()
     s_cfg_dirty = false;
     s_enable_keyer = true;
     gCW_KeyerManagesPtt = true;
-}
-
-void CW_KeyerReconfigure(bool enable)
-{
-    // Always tear down first so no stale FSM state survives.
-    CW_KeyerDeinit();
-
-    if (!enable) {
-        s_cfg_dirty = false;
-        return;
-    }
-
-    // Apply immediately, don't wait for idle.
-    CW_KeyerInit();
 }
 
 // --- Macro playback API implementation ---
@@ -521,9 +528,11 @@ CW_Action_t CW_HandleState(void)
     static CW_KeyerFSMState_t last_logged_state = CWK_STATE_IDLE;
 #endif
 
-    // don't start the keyer if we're in tech (hidden menu) mode
+    // Apply pending init if needed.
     if (s_cfg_dirty && s_KeyerFSMState == CWK_STATE_IDLE) {
         CW_KeyerInit();
+    } else if (!s_enable_keyer) {
+        return action;
     }
 
     const uint16_t cur_count = (uint16_t)TIMERBASE0_LOW_CNT;
@@ -817,19 +826,4 @@ CW_Action_t CW_HandleState(void)
 	}
 
 	return action;
-}
-
-static void CW_KeyerResetRuntime(void)
-{
-    s_KeyerFSMState = CWK_STATE_IDLE;
-
-    s_last_count = (uint16_t)TIMERBASE0_LOW_CNT;
-    s_elem_start_count = s_last_count;
-
-    s_active_is_dit = false;
-    s_pending_alternate = false;
-    s_last_handkey_ptt = false;
-
-    // clear any stale edge memory
-    CW_HW_ResetKeySamples();
 }

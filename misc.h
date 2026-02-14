@@ -347,9 +347,17 @@ inline bool SerialConfigInProgress() { return gSerialConfigCountDown_500ms != 0;
 	extern volatile bool                  gCW_KeyerUsingSD1;
 	extern volatile bool				  gCW_KeyerManagesPtt;
 	extern volatile bool                  gCW_CrossMode;
-	extern volatile uint16_t     gCW_SuspendCounter_10ms;
+	extern volatile uint16_t     gCW_SuspendCounter_1ms;
 	extern volatile uint16_t      gCW_TxDisplayHoldoff_10ms;
-	extern const uint16_t        cw_suspend_count_10ms;
+	extern const uint16_t        cw_suspend_count_1ms;
+
+	// CW macro/keyer state used by app loop
+	extern bool                  gCW_Recording;
+	extern bool                  gCW_RecordNewChar;
+	extern bool                  gCW_PlaybackActive;
+	extern bool                  gCW_PlaybackRepeat;
+	extern uint8_t               gCW_PlaybackMacroIndex;
+	extern uint16_t              gCW_MessageRepeatCountdown_500ms;
 #endif
 
 #endif

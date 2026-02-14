@@ -131,6 +131,7 @@ endif
 ifeq ($(ENABLE_CW_MODULATOR),1)
 	# CW modulator requires millis timer
 	ENABLE_MILLIS := 1
+    OBJS += app/cwapp.o
     OBJS += app/cwkeyer.o
     OBJS += app/cwhardware.o
     OBJS += app/cwmacro.o

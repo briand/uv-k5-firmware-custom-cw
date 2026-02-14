@@ -1,4 +1,6 @@
- /*
+/* Copyright 2026 NR7Y
+ * https://github.com/briand
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -12,23 +14,18 @@
  *     limitations under the License.
  */
 
-#ifndef DRIVER_TIMER_H
-#define DRIVER_TIMER_H
+// CW application-level update loop and end-of-transmission handling
 
-#include <stdint.h>
-#include <stdbool.h>
+#ifndef APP_CWAPP_H
+#define APP_CWAPP_H
 
-// 1 ms ISR flag – set by TIMERBASE0 interrupt, consumed in main loop
-extern volatile bool gNextTimeslice_1ms;
+// Called from main loop after APP_Update().
+// Handles CW keyer actions: carrier on/off/hold, suspend/resume, local sidetone.
+void CW_AppUpdate(void);
 
-void TIM0_INIT(void);
+// End CW transmission immediately.
+// Unlike the normal PTT release path, this does NOT honor RTTE
+// (Repeater Tail Tone Elimination is invalid for CW).
+void CW_EndTxNow(void);
 
-// Returns milliseconds (1 kHz free-running 16-bit counter)
-// WARNING: Rolls over every ~65.5 seconds
-uint32_t timer_millis(void);
-
-// Returns milliseconds elapsed since previous millis value with rollover protection
-// prev: Previous millis value from timer_millis()
-uint32_t timer_millis_since(uint32_t prev);
-
-#endif
+#endif // APP_CWAPP_H

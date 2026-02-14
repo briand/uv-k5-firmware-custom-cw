@@ -32,7 +32,9 @@
 #include "app/app.h"
 #include "app/dtmf.h"
 #ifdef ENABLE_CW_MODULATOR
+	#include "app/cwapp.h"
 	#include "app/cwkeyer.h"
+	#include "driver/timer.h"
 #endif
 #include "bsp/dp32g030/gpio.h"
 #include "bsp/dp32g030/syscon.h"
@@ -255,8 +257,15 @@ void Main(void)
 #endif
 	}
 
-	while (true) {  // on average, about 80 loops per mS
+	while (true) {
 		APP_Update();
+
+#ifdef ENABLE_CW_MODULATOR
+		if (gNextTimeslice_1ms) {
+			gNextTimeslice_1ms = false;
+			CW_AppUpdate();
+		}
+#endif
 
 		if (gNextTimeslice) {
 

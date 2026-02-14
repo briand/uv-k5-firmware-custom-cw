@@ -73,7 +73,6 @@
 #include "ui/ui.h"
 #ifdef ENABLE_CW_MODULATOR
 #include "app/cwkeyer.h"
-#include "app/cwmacro.h"
 #endif
 #ifdef ENABLE_CODE_PRACTICE
 #include "app/cpo.h"
@@ -744,7 +743,7 @@ void APP_EndTransmission(void)
 	{	
 		// Clear CW state when ending transmission entirely
 		gCW_State = CW_INACTIVE;
-		gCW_SuspendCounter_10ms = 0;
+		gCW_SuspendCounter_1ms = 0;
 		// Keep TX display visible for 1 second after TX ends
 		gCW_TxDisplayHoldoff_10ms = 100;
 	}
@@ -857,122 +856,6 @@ void APP_Update(void)
 
 	if (gCurrentFunction != FUNCTION_TRANSMIT)
 		HandleFunction();
-
-#ifdef ENABLE_CW_MODULATOR
-
-	if (!gF_LOCK && (gTxVfo->Modulation == MODULATION_CW
-#ifdef ENABLE_CODE_PRACTICE
-		|| gCW_CpoActive
-#endif
-	))
-	{
-		CW_Action_t action;
-		if (gCW_PlaybackActive)
-			action = CW_PlaybackHandleState();
-		else
-			action = CW_HandleState();
-		
-		// Don't transmit RF if we're recording a macro, reading ADC, or breakin disabled
-		if (gCW_Recording || gCW_AdcReadActive || !gEeprom.CW_BREAKIN_ENABLE
-#ifdef ENABLE_CODE_PRACTICE
-			// or doing code practice
-			|| gCW_CpoActive
-#endif
-			) {
-			switch(action)
-			{
-				case CW_ACTION_CARRIER_ON:
-					AUDIO_AudioPathOn();
-					BK4819_SetAF(BK4819_AF_ALAM);	
-					BK4819_WriteRegister(BK4819_REG_70,
-						BK4819_REG_70_ENABLE_TONE1 |
-						(gEeprom.CW_SIDETONE_LEVEL << BK4819_REG_70_SHIFT_TONE1_TUNING_GAIN));
-					// Set local AF sidetone freq in Hz
-					BK4819_SetScrambleFrequencyControlWord(gEeprom.CW_TONE_FREQUENCY * 10);
-					#ifdef ENABLE_FLASHLIGHT
-					if (gCW_FlashlightSending) {
-						GPIO_SetBit(&GPIOC->DATA, GPIOC_PIN_FLASHLIGHT);
-					}
-					#endif
-					gCW_TxDisplayHoldoff_10ms = 200; // start the centerline decoder
-				break;
-				case CW_ACTION_CARRIER_OFF:
-					// Set TONE1 to 0 Hz - this works better than gain to disable sidetone
-					BK4819_SetScrambleFrequencyControlWord(0);
-					#ifdef ENABLE_FLASHLIGHT
-					if (gCW_FlashlightSending) {
-						GPIO_ClearBit(&GPIOC->DATA, GPIOC_PIN_FLASHLIGHT);
-					}
-					#endif
-					#ifdef ENABLE_CODE_PRACTICE
-					if (gCW_CpoActive)
-						BK4819_SetAF(BK4819_AF_MUTE);
-					else
-					#endif
-						RADIO_SetModulation(gRxVfo->Modulation);  // back to RX audio path
-					gCW_TxDisplayHoldoff_10ms = 200; // leave the centerline decoder on for a second
-				break;
-				
-				default:
-				break;
-			}
-			// don't let RF happen
-			action = CW_ACTION_NONE;
-		}
-		
-		switch(action)
-		{
-			case CW_ACTION_CARRIER_ON:
-				gTxTimerCountdown_500ms = 0;
-				gCW_TxDisplayHoldoff_10ms = 200;
-				gPttIsPressed = true;
-
-				if(gCW_State == CW_INACTIVE)
-				{	
-					UART_Send("CW Start\r\n", 10);
-					RADIO_PrepareTX();
-				}
-				else if (gCW_State == CW_SUSPENDED) {
-                    RADIO_CW_BeginResume();
-                }
-                // if already CW_TRANSMITTING: no-op
-			break;
-
-            case CW_ACTION_CARRIER_OFF:
-                // only suspend once, from active TX
-                if (gCW_State == CW_TRANSMITTING) {
-                    RADIO_CW_Suspend();
-                    gCW_SuspendCounter_10ms = 0;
-                }
-                gCW_TxDisplayHoldoff_10ms = 200;
-            break;
-
-            case CW_ACTION_CARRIER_HOLD_ON:
-                gPttIsPressed = true;
-                gTxTimerCountdown_500ms = 0;
-
-                // if hold arrives while suspended, resume once
-                if (gCW_State == CW_SUSPENDED) {
-                    RADIO_CW_BeginResume();
-                }
-                if (gCW_State != CW_INACTIVE) {
-                    gCW_SuspendCounter_10ms = 0;
-                }
-            break;
-
-			case CW_ACTION_NONE:
-			default:
-			break;
-		}
-	} else if(gCW_State == CW_TRANSMITTING)
-	{
-		// this should basically never happen, but maybe if changing modulation while transmitting?
-		UART_Send("!!! CW Auto-auto Suspend\r\n", 21);
-		RADIO_CW_Suspend();
-		gCW_SuspendCounter_10ms = cw_suspend_count_10ms;
-	}
-
-#endif
 
 #ifdef ENABLE_FMRADIO
 //	if (gFmRadioCountdown_500ms > 0)
@@ -1142,31 +1025,14 @@ static void CheckKeys(void)
 #endif
 
 // -------------------- PTT ------------------------
+#ifdef ENABLE_CW_MODULATOR
+	if (!gCW_KeyerManagesPtt)   // CW keyer owns PTT entirely when active
+	{
+#endif
 	if (gPttIsPressed)
 	{
-		if (
-#ifdef ENABLE_CW_MODULATOR
-		gCW_KeyerManagesPtt || // prevent reading PTT GPIO
-#endif		
-		(GPIO_CheckBit(&GPIOC->DATA, GPIOC_PIN_PTT) || SerialConfigInProgress()))
-
+		if (GPIO_CheckBit(&GPIOC->DATA, GPIOC_PIN_PTT) || SerialConfigInProgress())
 		{	// PTT released or serial comms config in progress
-
-#ifdef ENABLE_CW_MODULATOR
-			if(gCW_State != CW_INACTIVE)
-			{
-				gPttDebounceCounter = 0; // keep ptt "pressed" while doing CW transmission OR suspended
-			}
-			
-			if (gCW_State == CW_SUSPENDED)
-			{
-				// in CW suspend: count duration and end TX if threshold exceeded
-				if (++gCW_SuspendCounter_10ms >= cw_suspend_count_10ms) {
-					gCW_State = CW_INACTIVE;
-					gPttDebounceCounter = 3; // skip debounce and fall through
-				}
-			}
-#endif
 
 			if (++gPttDebounceCounter >= 3 || SerialConfigInProgress())	    // 30ms
 			{	// stop transmitting
@@ -1181,18 +1047,8 @@ static void CheckKeys(void)
 			gPttDebounceCounter = 0;
 		}
 	}
-	else if (
-#ifdef ENABLE_CW_MODULATOR
-		gCW_KeyerManagesPtt ||
-#endif		
-		(!GPIO_CheckBit(&GPIOC->DATA, GPIOC_PIN_PTT) && !SerialConfigInProgress()))
+	else if (!GPIO_CheckBit(&GPIOC->DATA, GPIOC_PIN_PTT) && !SerialConfigInProgress())
 	{   // PTT pressed
-
-#ifdef ENABLE_CW_MODULATOR
-		if (gCW_KeyerManagesPtt) {
-			gPttDebounceCounter = 0; // we only got here to avoid reading GPIO, skip ProcessKey
-		}
-#endif
 		if (++gPttDebounceCounter >= 3)     // 30ms
 		{   // start transmitting
 			boot_counter_10ms   = 0;
@@ -1203,6 +1059,9 @@ static void CheckKeys(void)
 	}
 	else
 		gPttDebounceCounter = 0;
+#ifdef ENABLE_CW_MODULATOR
+	}   // end !gCW_KeyerManagesPtt
+#endif
 
 // --------------------- OTHER KEYS ----------------------------
 

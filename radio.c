@@ -575,10 +575,7 @@ void RADIO_SetupRegisters(bool switchToForeground)
 {
 	BK4819_FilterBandwidth_t Bandwidth = gRxVfo->CHANNEL_BANDWIDTH;
 
-#ifdef ENABLE_CW_MODULATOR
-	if (gRxVfo->Modulation == MODULATION_CW)
-		AUDIO_AudioPathOff();
-#endif
+	AUDIO_AudioPathOff();
 
 	gEnableSpeaker = false;
 
@@ -647,7 +644,7 @@ void RADIO_SetupRegisters(bool switchToForeground)
 
 	BK4819_PickRXFilterPathBasedOnFrequency(Frequency);
 
-	// what does this in do ?
+	// top level RX bias enable - allows the VHF/UHF LNA paths to work
 	BK4819_ToggleGpioOut(BK4819_GPIO0_PIN28_RX_ENABLE, true);
 
 	// AF RX Gain and DAC
@@ -818,7 +815,7 @@ void RADIO_SetTxParameters(void)
 	BK4819_FilterBandwidth_t Bandwidth = gCurrentVfo->CHANNEL_BANDWIDTH;
 
 	#ifdef ENABLE_CW_MODULATOR
-	if((gTxVfo->Modulation != MODULATION_CW) || (gEeprom.CW_SIDETONE_LEVEL == 0))
+	//if((gTxVfo->Modulation != MODULATION_CW) || (gEeprom.CW_SIDETONE_LEVEL == 0))  // briand TODO revisit
 	#endif
 		AUDIO_AudioPathOff();
 
@@ -1145,6 +1142,8 @@ void RADIO_PrepareCssTX(void)
 void RADIO_CW_BeginResume(void)
 {
 	gCW_State = CW_TRANSMITTING;
+	// briand debugging
+	AUDIO_AudioPathOn();
 	// Setup and begin CW transmission, either first time or resuming after suspend
 	BK4819_SetupPowerAmplifier(gCurrentVfo->TXP_CalculatedSetting, gCurrentVfo->pTX->Frequency);
 
@@ -1165,9 +1164,6 @@ void RADIO_CW_Suspend(void)
 
 	// Set PA bias to 0
 	BK4819_SetupPowerAmplifier(0, 0);
-
-	// 0 gain on tone1
-	//BK4819_WriteRegister(BK4819_REG_70,	BK4819_REG_70_ENABLE_TONE1 );
 
 	// Set TONE1 to 0 Hz - this works better than gain to disable sidetone
 	BK4819_SetScrambleFrequencyControlWord(0);

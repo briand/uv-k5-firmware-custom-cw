@@ -76,7 +76,7 @@ const uint16_t    NOAA_countdown_2_10ms            =   500 / 10;   // 500ms
 const uint16_t    NOAA_countdown_3_10ms            =   200 / 10;   // 200ms
 
 #ifdef ENABLE_CW_MODULATOR
-const uint16_t    cw_suspend_count_10ms            =   200 / 10;   // 200ms
+const uint16_t    cw_suspend_count_1ms            =   200;        // 200ms
 #endif
 
 const uint32_t    gDefaultAesKey[4]                = {0x4AA5CC60, 0x0312CC5F, 0xFFD2DABB, 0x6BBA7F92};
@@ -254,7 +254,7 @@ volatile uint8_t  boot_counter_10ms;
 uint8_t           gIsLocked = 0xFF;
 
 #ifdef ENABLE_CW_MODULATOR
-	volatile uint16_t gCW_SuspendCounter_10ms;
+	volatile uint16_t gCW_SuspendCounter_1ms;
 	volatile CW_State_t        gCW_State = CW_INACTIVE;
 	volatile bool     gCW_KeyerUsingSD1 = false;
 	volatile bool     gCW_KeyerManagesPtt = false;

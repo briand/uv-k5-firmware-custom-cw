@@ -28,6 +28,9 @@
 	.global SystickHandler
 	.weak SystickHandler
 
+	.global HandlerTIMER_BASE0
+	.weak HandlerTIMER_BASE0
+
 	.section .text.isr
 
 Stack:

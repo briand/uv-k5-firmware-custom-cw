@@ -56,7 +56,7 @@ void CW_StopPlayback(void);
 CW_Action_t CW_PlaybackHandleState(void);
 
 // Periodic deadline handler to refresh CW playback UI indicator (blinker).
-// Call from a periodic context (e.g., APP_TimeSlice10ms). Uses timer_jiffies/millis.
+// Call from a periodic context (e.g., APP_TimeSlice10ms). Uses timer_millis.
 void CW_PlaybackIndicatorDeadline(void);
 
 #ifdef ENABLE_FLASHLIGHT

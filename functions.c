@@ -141,8 +141,6 @@ void FUNCTION_PowerSave() {
 
 void FUNCTION_Transmit()
 {
-	
-    UART_Send("function_transmit\r\n", 19);   // briand TODO remove
 	// if DTMF is enabled when TX'ing, it changes the TX audio filtering !! .. 1of11
 	BK4819_DisableDTMF();
 
@@ -235,7 +233,7 @@ void FUNCTION_Transmit_CW()
 {
 	// Mark CW TX in progress and clear suspend counter
 	gCW_State = CW_TRANSMITTING;
-	gCW_SuspendCounter_10ms = 0;
+	gCW_SuspendCounter_1ms = 0;
 	
 	gUpdateStatus = true;
 
@@ -263,6 +261,9 @@ void FUNCTION_Transmit_CW()
 		(gEeprom.CW_SIDETONE_LEVEL << BK4819_REG_70_SHIFT_TONE1_TUNING_GAIN));
 	BK4819_SetAF(BK4819_AF_ALAM);
 
+	AUDIO_AudioPathOn();  // briand TODO revisit for audio pops
+	gEnableSpeaker = true;
+	
 	RADIO_CW_BeginResume();
 }
 #endif

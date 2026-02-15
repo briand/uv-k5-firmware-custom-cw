@@ -576,12 +576,12 @@ void RADIO_SetupRegisters(bool switchToForeground)
 	BK4819_FilterBandwidth_t Bandwidth = gRxVfo->CHANNEL_BANDWIDTH;
 
 #ifdef ENABLE_CW_MODULATOR
-//	if(gRxVfo->Modulation != MODULATION_CW)  // briand TODO audio glitch
+	// skip AudioPathOff if going foreground and CW already lit up again
+	// this was a QSK race condition that caused a muted element
+	if(gCW_State == CW_INACTIVE)
 #endif
 	AUDIO_AudioPathOff();
-#ifdef ENABLE_CW_MODULATOR
-	if(gRxVfo->Modulation != MODULATION_CW)
-#endif
+
 	gEnableSpeaker = false;
 
 	BK4819_ToggleGpioOut(BK4819_GPIO6_PIN2_GREEN, false);
@@ -1152,8 +1152,7 @@ void RADIO_PrepareCssTX(void)
 void RADIO_CW_BeginResume(void)
 {
 	gCW_State = CW_TRANSMITTING;
-	// briand debugging
-	AUDIO_AudioPathOn();
+
 	gEnableSpeaker = true;
 
 	// Setup and begin CW transmission, either first time or resuming after suspend

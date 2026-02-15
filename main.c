@@ -261,8 +261,10 @@ void Main(void)
 		APP_Update();
 
 #ifdef ENABLE_CW_MODULATOR
-		if (gNextTimeslice_1ms) {
-			gNextTimeslice_1ms = false;
+		static uint16_t s_last_millis = 0;
+		const uint16_t current_millis = timer_millis_low16();
+		if (current_millis - s_last_millis > 0) {
+			s_last_millis = current_millis;
 			CW_AppUpdate();
 		}
 #endif

@@ -35,6 +35,8 @@
 #include "misc.h"
 #include "radio.h"
 #include "settings.h"
+#include "driver/system.h"
+#include "driver/timer.h"
 #ifdef ENABLE_CODE_PRACTICE
 #include "app/cpo.h"
 #endif
@@ -43,10 +45,13 @@
 #endif
 
 // ---------------------------------------------------------------------------
-// CW_EndTxNow  –  end CW transmission immediately
+// CW_EndTxNow  –  end CW transmission immediately and return to monitor
 // ---------------------------------------------------------------------------
 void CW_EndTxNow(void)
 {
+    // Clear CW state when ending transmission entirely
+    gCW_State = CW_INACTIVE;
+
 	// Call the common end-of-transmission (sends tail, resets TX regs)
 	APP_EndTransmission();
 
@@ -59,14 +64,13 @@ void CW_EndTxNow(void)
 	gVOX_NoiseDetected = false;
 #endif
 
-	RADIO_SetVfoState(VFO_STATE_NORMAL);
-
-	gUpdateStatus  = true;
-	gUpdateDisplay = true;
+	RADIO_SetVfoState(VFO_STATE_NORMAL);  // only variables
+    RADIO_SelectVfos();                   // only variables
+    APP_StartListening(FUNCTION_MONITOR);  // does AudioPathOn
 }
 
 // ---------------------------------------------------------------------------
-// CW_AppUpdate  –  called every 1 ms from main.c (gated by TIMERBASE0 ISR flag)
+// CW_AppUpdate  –  called from main.c at approx 1ms cadence (sometimes a little longer)
 // ---------------------------------------------------------------------------
 void CW_AppUpdate(void)
 {
@@ -79,14 +83,12 @@ void CW_AppUpdate(void)
 #endif
 	))
 	{
-		// Not in CW mode – but if we were transmitting CW, auto-suspend
-		if (gCW_State == CW_TRANSMITTING)
+		// Not in CW mode – paranoid check to end CW TX
+		if (gCW_State != CW_INACTIVE)
 		{
-			UART_Send("!!! CW Auto-auto Suspend\r\n", 21);
-			RADIO_CW_Suspend();
-			gCW_SuspendCounter_1ms = cw_suspend_limit_1ms;
+			CW_EndTxNow();
 		}
-		return;
+        return;  // not in CW mode, nothing else to do
 	}
 
 	// ---- poll the keyer / playback engine for the next action ----
@@ -149,11 +151,10 @@ void CW_AppUpdate(void)
 		case CW_ACTION_CARRIER_ON:
 			gTxTimerCountdown_500ms = 0;
 			gCW_TxDisplayHoldoff_10ms = 200;
-			gPttIsPressed = true;
+			gPttIsPressed = true;  // makes backlight come on, among other things
 
 			if (gCW_State == CW_INACTIVE)
 			{
-				UART_Send("CW Start\r\n", 10);
 				RADIO_PrepareTX();
 			}
 			else if (gCW_State == CW_SUSPENDED) {
@@ -166,7 +167,7 @@ void CW_AppUpdate(void)
 			// only suspend once, from active TX
 			if (gCW_State == CW_TRANSMITTING) {
 				RADIO_CW_Suspend();
-				gCW_SuspendCounter_1ms = 0;
+				gCW_SuspendCounter_1ms = timer_millis_low16();
 			}
 			gCW_TxDisplayHoldoff_10ms = 200;
 		break;
@@ -174,12 +175,13 @@ void CW_AppUpdate(void)
 		case CW_ACTION_CARRIER_HOLD_ON:
 			gPttIsPressed = true;
 			gTxTimerCountdown_500ms = 0;
+			gCW_TxDisplayHoldoff_10ms = 200;
 
 			// if hold arrives while suspended (shouldn't happen), resume once
 			if (gCW_State == CW_SUSPENDED) {
 				RADIO_CW_BeginResume();
 			}
-			gCW_SuspendCounter_1ms = 0;
+			gCW_SuspendCounter_1ms = timer_millis_low16();
 		break;
 
 		case CW_ACTION_NONE:
@@ -190,7 +192,14 @@ void CW_AppUpdate(void)
 	// ---- suspend timeout → end TX ----
 	if (gCW_State == CW_SUSPENDED)
 	{
-		if (++gCW_SuspendCounter_1ms >= cw_suspend_limit_1ms) {
+        // to control for popping audio, we turn off the audio path first, then do processing 15mS later
+        if (timer_millis_low16_since(gCW_SuspendCounter_1ms) >= cw_suspend_limit_1ms) {
+            AUDIO_AudioPathOff();
+        }
+		if (timer_millis_low16_since(gCW_SuspendCounter_1ms) >= cw_suspend_limit_1ms+15) {
+            gCW_SuspendCounter_1ms = 0;
+            gCW_TxDisplayHoldoff_10ms = 200;
+            gPttIsPressed = false;
 			CW_EndTxNow();
 		}
 	}

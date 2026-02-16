@@ -34,7 +34,6 @@
 #ifdef ENABLE_CW_MODULATOR
 	#include "app/cwapp.h"
 	#include "app/cwkeyer.h"
-	#include "driver/timer.h"
 #endif
 #include "bsp/dp32g030/gpio.h"
 #include "bsp/dp32g030/syscon.h"
@@ -47,7 +46,8 @@
 #ifdef ENABLE_UART
 	#include "driver/uart.h"
 #endif
-#ifdef ENABLE_MILLIS
+
+#if defined(ENABLE_MILLIS) || defined(ENABLE_CW_MODULATOR)
 	#include "driver/timer.h"
 #endif
 
@@ -84,9 +84,9 @@ void Main(void)
 	SYSTICK_Init();
 	BOARD_Init();
 
-#ifdef ENABLE_MILLIS
+	#if defined(ENABLE_MILLIS) || defined(ENABLE_CW_MODULATOR)
 	TIM0_INIT();
-#endif
+	#endif
 
 	boot_counter_10ms = 250;   // 2.5 sec
 
@@ -263,7 +263,7 @@ void Main(void)
 #ifdef ENABLE_CW_MODULATOR
 		static uint16_t s_last_millis = 0;
 		const uint16_t current_millis = timer_millis_low16();
-		if (current_millis - s_last_millis > 0) {
+		if (timer_millis_low16_since(s_last_millis) > 0) {
 			s_last_millis = current_millis;
 			CW_AppUpdate();
 		}

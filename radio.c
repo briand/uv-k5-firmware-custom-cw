@@ -575,11 +575,6 @@ void RADIO_SetupRegisters(bool switchToForeground)
 {
 	BK4819_FilterBandwidth_t Bandwidth = gRxVfo->CHANNEL_BANDWIDTH;
 
-#ifdef ENABLE_CW_MODULATOR
-	// skip AudioPathOff if going foreground and CW already lit up again
-	// this was a QSK race condition that caused a muted element
-	if(gCW_State == CW_INACTIVE)
-#endif
 	AUDIO_AudioPathOff();
 
 	gEnableSpeaker = false;
@@ -1153,7 +1148,7 @@ void RADIO_CW_BeginResume(void)
 {
 	gCW_State = CW_TRANSMITTING;
 
-	gEnableSpeaker = true;
+	AUDIO_AudioPathOn();
 
 	// Setup and begin CW transmission, either first time or resuming after suspend
 	BK4819_SetupPowerAmplifier(gCurrentVfo->TXP_CalculatedSetting, gCurrentVfo->pTX->Frequency);

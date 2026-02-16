@@ -738,17 +738,6 @@ void APP_EndTransmission(void)
 
 	gFlagEndTransmission = true;
 
-#ifdef ENABLE_CW_MODULATOR
-	if(gCW_State != CW_INACTIVE)
-	{	
-		// Clear CW state when ending transmission entirely
-		gCW_State = CW_INACTIVE;
-		gCW_SuspendCounter_1ms = 0;
-		// Keep TX display visible for 1 second after TX ends
-		gCW_TxDisplayHoldoff_10ms = 100;
-	}
-#endif
-
 	if (gMonitor) {
 		 //turn the monitor back on
 		gFlagReconfigureVfos = true;

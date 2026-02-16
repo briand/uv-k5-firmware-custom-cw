@@ -1605,7 +1605,9 @@ static void ProcessKey(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 		CPO_ProcessKeys(Key, bKeyPressed, bKeyHeld);
 		return;
 	}
-	if(Key == KEY_SIDE1 && gCW_KeyerUsingSD1) {
+#endif
+#ifdef ENABLE_CW_MODULATOR
+	if (Key == KEY_SIDE1 && gCW_KeyerUsingSD1) {
 		return;
 	}
 #endif
@@ -1855,11 +1857,6 @@ if (gCurrentFunction == FUNCTION_TRANSMIT) {
 	}
 #endif
 	}
-#ifdef ENABLE_CW_MODULATOR
-	else if (Key == KEY_SIDE1 && gCW_KeyerUsingSD1) {
-		// Block SIDE1 action while SIDE1 is being used as CW key input.
-	}
-#endif
 	else if (Key != KEY_SIDE1 && Key != KEY_SIDE2 && gScreenToDisplay != DISPLAY_INVALID) {
 		ProcessKeysFunctions[gScreenToDisplay](Key, bKeyPressed, bKeyHeld);
 	}

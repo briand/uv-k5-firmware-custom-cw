@@ -613,6 +613,7 @@ void RADIO_SetupRegisters(bool switchToForeground)
 		BK4819_WriteRegister(BK4819_REG_02, 0);
 		SYSTEM_DelayMs(1);
 	}
+	// no interrupts enabled
 	BK4819_WriteRegister(BK4819_REG_3F, 0);
 
 	// mic gain 0.5dB/step 0 to 31
@@ -758,7 +759,7 @@ void RADIO_SetupRegisters(bool switchToForeground)
 
 	// enable/disable BK4819 selected interrupts
 	BK4819_WriteRegister(BK4819_REG_3F, InterruptMask);
-
+	
 	FUNCTION_Init();
 
 	if (switchToForeground)

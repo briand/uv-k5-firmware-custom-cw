@@ -1605,6 +1605,9 @@ static void ProcessKey(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 		CPO_ProcessKeys(Key, bKeyPressed, bKeyHeld);
 		return;
 	}
+	if(Key == KEY_SIDE1 && gCW_KeyerUsingSD1) {
+		return;
+	}
 #endif
 	if (Key == KEY_EXIT && !BACKLIGHT_IsOn() && gEeprom.BACKLIGHT_TIME > 0)
 	{	// just turn the light on for now so the user can see what's what
@@ -1853,8 +1856,8 @@ if (gCurrentFunction == FUNCTION_TRANSMIT) {
 #endif
 	}
 #ifdef ENABLE_CW_MODULATOR
-	else if (Key == KEY_SIDE1 && (gCW_KeyerUsingSD1 && (gCW_Recording || (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_SIDE1)))) {
-		// Block side button 1 if used by keyer during CW macro recording
+	else if (Key == KEY_SIDE1 && gCW_KeyerUsingSD1) {
+		// Block SIDE1 action while SIDE1 is being used as CW key input.
 	}
 #endif
 	else if (Key != KEY_SIDE1 && Key != KEY_SIDE2 && gScreenToDisplay != DISPLAY_INVALID) {

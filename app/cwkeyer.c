@@ -102,6 +102,9 @@ static volatile bool s_cfg_dirty = true;
 // Keyer enabled flag - this means ALL CW keying, not just paddle FSM.
 static volatile bool s_enable_keyer = false;
 
+// Last fully configured key input mode. 0xFF means "not configured".
+static uint8_t s_last_key_input_mode = 0xFF;
+
 #ifdef ENABLE_FLASHLIGHT
 bool gCW_FlashlightSending = false;
 #endif
@@ -130,6 +133,7 @@ static void CW_KeyerDeinit()
     gCW_KeyerManagesPtt = false;
     gCW_KeyerUsingSD1 = false;
     s_enable_keyer = false;
+    s_last_key_input_mode = 0xFF;
 }
 
 void CW_KeyerReconfigure(bool enable)
@@ -166,19 +170,28 @@ void CW_UpdateWPM()
 // Initialize keyer from gEeprom settings
 static void CW_KeyerInit()
 {
-    CW_KeyerResetRuntime();
-    CW_UpdateWPM();
+    const uint8_t key_input_mode = gEeprom.CW_KEY_INPUT;
 
-    bool uses_port_ground = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_PORT_GROUND) != 0;
-    bool uses_port_ring   = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_PORT_RING) != 0;
-    bool uses_adc         = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_ADC) != 0;
+    CW_UpdateWPM();
+    // Same input mode as last successful init: only refresh timing.
+    if (s_enable_keyer && s_last_key_input_mode == key_input_mode) {
+        s_cfg_dirty = false;
+        return;
+    }
+
+    CW_KeyerResetRuntime();
+
+    bool uses_port_ground = (key_input_mode & CW_KEY_FLAG_PORT_GROUND) != 0;
+    bool uses_port_ring   = (key_input_mode & CW_KEY_FLAG_PORT_RING) != 0;
+    bool uses_adc         = (key_input_mode & CW_KEY_FLAG_ADC) != 0;
 
     CW_ConfigurePortRing(uses_port_ring);
     CW_ConfigureADCforCECPaddles(uses_adc);
     if (!uses_adc && uses_port_ground)
         CW_ConfigurePortGround(true);
 
-    gCW_KeyerUsingSD1 = (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_SIDE1) != 0;
+    gCW_KeyerUsingSD1 = (key_input_mode & CW_KEY_FLAG_SIDE1) != 0;
+    s_last_key_input_mode = key_input_mode;
     s_cfg_dirty = false;
     s_enable_keyer = true;
     gCW_KeyerManagesPtt = true;

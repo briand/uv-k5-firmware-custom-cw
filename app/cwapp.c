@@ -44,6 +44,28 @@
 #include "app/flashlight.h"
 #endif
 
+// If audio path is ever driven low, keep it low long enough for amp edge detection.
+#define CW_AUDIO_PATH_MIN_OFF_MS 20U
+
+static bool     gCW_AudioPathForcedOff = false;
+static uint16_t gCW_AudioPathOffSince_1ms;
+
+static void CW_WaitMinAudioPathOffTime(void)
+{
+	// Already ON -> no added latency.
+	if (GPIO_CheckBit(&GPIOC->DATA, GPIOC_PIN_AUDIO_PATH))
+		return;
+
+	uint16_t off_elapsed_1ms = 0;
+
+	// If this OFF came from CW suspend handling, wait only the remaining time.
+	if (gCW_AudioPathForcedOff)
+		off_elapsed_1ms = timer_millis_low16_since(gCW_AudioPathOffSince_1ms);
+
+	if (off_elapsed_1ms < CW_AUDIO_PATH_MIN_OFF_MS)
+		SYSTEM_DelayMs(CW_AUDIO_PATH_MIN_OFF_MS - off_elapsed_1ms);
+}
+
 // ---------------------------------------------------------------------------
 // CW_EndTxNow  –  end CW transmission immediately and return to monitor
 // ---------------------------------------------------------------------------
@@ -51,6 +73,8 @@ void CW_EndTxNow(void)
 {
     // Clear CW state when ending transmission entirely
     gCW_State = CW_INACTIVE;
+	gCW_AudioPathForcedOff = false;
+	gCW_AudioPathOffSince_1ms = 0;
 
 	// Call the common end-of-transmission (sends tail, resets TX regs)
 	APP_EndTransmission();
@@ -158,7 +182,11 @@ void CW_AppUpdate(void)
 				RADIO_PrepareTX();
 			}
 			else if (gCW_State == CW_SUSPENDED) {
+				CW_WaitMinAudioPathOffTime();
 				RADIO_CW_BeginResume();
+				gCW_AudioPathForcedOff = false;
+				gCW_AudioPathOffSince_1ms = 0;
+                gCW_SuspendCounter_1ms = 0;
 			}
 			// if already CW_TRANSMITTING: no-op
 		break;
@@ -168,6 +196,8 @@ void CW_AppUpdate(void)
 			if (gCW_State == CW_TRANSMITTING) {
 				RADIO_CW_Suspend();
 				gCW_SuspendCounter_1ms = timer_millis_low16();
+				gCW_AudioPathForcedOff = false;
+				gCW_AudioPathOffSince_1ms = 0;
 			}
 			gCW_TxDisplayHoldoff_10ms = 200;
 		break;
@@ -192,10 +222,12 @@ void CW_AppUpdate(void)
 	// ---- suspend timeout → end TX ----
 	if (gCW_State == CW_SUSPENDED)
 	{
-        // to control for popping audio, we turn off the audio path first, then do processing 15mS later
-        if (timer_millis_low16_since(gCW_SuspendCounter_1ms) >= cw_suspend_limit_1ms) {
-            AUDIO_AudioPathOff();
-        }
+		// to control for popping audio, we turn off the audio path first, then do processing 15mS later
+		if (timer_millis_low16_since(gCW_SuspendCounter_1ms) >= cw_suspend_limit_1ms && !gCW_AudioPathForcedOff) {
+			AUDIO_AudioPathOff();
+			gCW_AudioPathOffSince_1ms = timer_millis_low16();
+			gCW_AudioPathForcedOff = true;
+		}
 		if (timer_millis_low16_since(gCW_SuspendCounter_1ms) >= cw_suspend_limit_1ms+15) {
             gCW_SuspendCounter_1ms = 0;
             gCW_TxDisplayHoldoff_10ms = 200;

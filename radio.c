@@ -575,6 +575,9 @@ void RADIO_SetupRegisters(bool switchToForeground)
 {
 	BK4819_FilterBandwidth_t Bandwidth = gRxVfo->CHANNEL_BANDWIDTH;
 
+#ifdef ENABLE_CW_MODULATOR
+	if (gRxVfo->Modulation != MODULATION_CW)
+#endif
 	AUDIO_AudioPathOff();
 
 	gEnableSpeaker = false;
@@ -815,10 +818,10 @@ void RADIO_SetTxParameters(void)
 {
 	BK4819_FilterBandwidth_t Bandwidth = gCurrentVfo->CHANNEL_BANDWIDTH;
 
-	#ifdef ENABLE_CW_MODULATOR
-	if((gTxVfo->Modulation != MODULATION_CW) || (gEeprom.CW_SIDETONE_LEVEL == 0)) // otherwise the first dit is weak
-	#endif
-		AUDIO_AudioPathOff();
+#ifdef ENABLE_CW_MODULATOR
+	if(gTxVfo->Modulation != MODULATION_CW)
+#endif
+	AUDIO_AudioPathOff();
 
 	gEnableSpeaker = false;
 
@@ -1176,6 +1179,9 @@ void RADIO_CW_Suspend(void)
 
 	// Set TONE1 to 0 Hz - this works better than gain 0 to disable sidetone
 	BK4819_SetScrambleFrequencyControlWord(0);
+
+	// by doing this right after dropping tone, we don't hear a pop when going to RX
+	BK4819_SetAF(BK4819_AF_BASEBAND2);
 	
 	// Turn off the red LED
 	BK4819_ToggleGpioOut(BK4819_GPIO5_PIN1_RED, false);

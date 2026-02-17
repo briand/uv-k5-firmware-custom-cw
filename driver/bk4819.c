@@ -830,9 +830,12 @@ void BK4819_RX_TurnOn(void)
 	//
 	BK4819_WriteRegister(BK4819_REG_37, 0x1F0F);  // 0001111100001111
 
-	// Turn off everything
-	BK4819_WriteRegister(BK4819_REG_30, 0);
-
+	BK4819_WriteRegister(BK4819_REG_30, 0
+#ifdef ENABLE_CW_MODULATOR
+	// Don't turn off the AF_DAC or RX DSP because that causes a pop, we're just turning them back on
+	| BK4819_REG_30_ENABLE_AF_DAC | BK4819_REG_30_ENABLE_RX_DSP
+#endif
+	);
 
 	BK4819_WriteRegister(BK4819_REG_30,
 		BK4819_REG_30_ENABLE_VCO_CALIB |
@@ -1157,10 +1160,19 @@ void BK4819_PrepareTransmit(void)
 
 void BK4819_TxOn_Beep(void)
 {
+	// PLLs and LDOs
 	BK4819_WriteRegister(BK4819_REG_37, 0x1D0F);
+
+	// CTCSS
 	BK4819_WriteRegister(BK4819_REG_52, 0x028F);
-	BK4819_WriteRegister(BK4819_REG_30, 0x0000);
-	BK4819_WriteRegister(BK4819_REG_30, 0xC1FE);
+
+#ifdef ENABLE_CW_MODULATOR
+	if(gTxVfo->Modulation == MODULATION_CW) {
+		// Don't turn off the AF_DAC or DSP, it causes a pop
+		BK4819_WriteRegister(BK4819_REG_30, 0x0000 | BK4819_REG_30_ENABLE_AF_DAC | BK4819_REG_30_ENABLE_RX_DSP);
+	} else
+#endif
+		BK4819_WriteRegister(BK4819_REG_30, 0xC1FE);
 }
 
 void BK4819_ExitSubAu(void)

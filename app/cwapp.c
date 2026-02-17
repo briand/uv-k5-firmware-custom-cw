@@ -130,9 +130,7 @@ void CW_AppUpdate(void)
 				}
 				#endif
 				#ifdef ENABLE_CODE_PRACTICE
-				if (gCW_CpoActive)
-					BK4819_SetAF(BK4819_AF_MUTE);
-				else
+				if (!gCW_CpoActive)  // just stay in ALAM for CPO
 				#endif
 					RADIO_SetModulation(gRxVfo->Modulation);
 				gCW_TxDisplayHoldoff_10ms = 200;
@@ -158,7 +156,6 @@ void CW_AppUpdate(void)
 				RADIO_PrepareTX();
 			}
 			else if (gCW_State == CW_SUSPENDED) {
-				CW_WaitMinAudioPathOffTime();
 				RADIO_CW_BeginResume();
                 gCW_SuspendCounter_1ms = 0;
 			}

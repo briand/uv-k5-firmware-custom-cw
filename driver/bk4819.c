@@ -791,8 +791,19 @@ void BK4819_SetAF(BK4819_AF_Type_t AF)
 	// AF Output Inverse Mode = Inverse
 	// Undocumented bits 0x2040
 	//
-//	BK4819_WriteRegister(BK4819_REG_47, 0x6040 | (AF << 8));
+#ifdef ENABLE_CW_MODULATOR	
+	// CW audio management: AF_ALAM is basically muted anyway, it only plays audio when we set tones
+	// so rather than letting the audio change to mute (which causes a pop), we'll just skip it unless
+	// we're changing to some other AF mode.
+
+	static BK4819_AF_Type_t lastAF = BK4819_AF_MUTE;
+	if(AF != BK4819_AF_MUTE || lastAF != BK4819_AF_ALAM) {
+		lastAF = AF;
+#endif
 	BK4819_WriteRegister(BK4819_REG_47, (6u << 12) | (AF << 8) | (1u << 6));
+#ifdef ENABLE_CW_MODULATOR	
+	}
+#endif
 }
 
 void BK4819_SetRegValue(RegisterSpec s, uint16_t v) {

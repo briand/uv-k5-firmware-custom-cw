@@ -729,6 +729,13 @@ void BK4819_SetupSquelch(
 	// <6:0>  0 TONE2/FSK tuning gain
 	//        0 ~ 127
 	//
+#ifdef ENABLE_CW_MODULATOR
+	if(gRxVfo->Modulation == MODULATION_CW)
+		// setting reg70 causes a pop, so we use freq=0 instead
+		// also, skip squelch settings because they're not used in CW
+		BK4819_WriteRegister(BK4819_REG_71, 0);
+	else
+#endif
 	BK4819_WriteRegister(BK4819_REG_70, 0);
 
 	// Glitch threshold for Squelch = close
@@ -781,6 +788,9 @@ void BK4819_SetupSquelch(
 	//
 	BK4819_WriteRegister(BK4819_REG_78, ((uint16_t)SquelchOpenRSSIThresh   << 8) | SquelchCloseRSSIThresh);
 
+#ifdef ENABLE_CW_MODULATOR
+	if(gRxVfo->Modulation != MODULATION_CW)
+#endif		
 	BK4819_SetAF(BK4819_AF_MUTE);
 
 	BK4819_RX_TurnOn();
@@ -795,9 +805,11 @@ void BK4819_SetAF(BK4819_AF_Type_t AF)
 	// CW audio management: AF_ALAM is basically muted anyway, it only plays audio when we set tones
 	// so rather than letting the audio change to mute (which causes a pop), we'll just skip it unless
 	// we're changing to some other AF mode.
+	//
+	// Also, setting an active AF mode, even if it's the same one we're already in, will cause a pop.
 
 	static BK4819_AF_Type_t lastAF = BK4819_AF_MUTE;
-	if(AF != BK4819_AF_MUTE || lastAF != BK4819_AF_ALAM) {
+	if(AF != lastAF && (AF != BK4819_AF_MUTE || lastAF != BK4819_AF_ALAM)) {
 		lastAF = AF;
 #endif
 	BK4819_WriteRegister(BK4819_REG_47, (6u << 12) | (AF << 8) | (1u << 6));
@@ -830,13 +842,17 @@ void BK4819_RX_TurnOn(void)
 	//
 	BK4819_WriteRegister(BK4819_REG_37, 0x1F0F);  // 0001111100001111
 
-	BK4819_WriteRegister(BK4819_REG_30, 0
+	
 #ifdef ENABLE_CW_MODULATOR
-	// Don't turn off the AF_DAC or RX DSP because that causes a pop, we're just turning them back on
-	| BK4819_REG_30_ENABLE_AF_DAC | BK4819_REG_30_ENABLE_RX_DSP
+	if(gRxVfo->Modulation == MODULATION_CW)
+	BK4819_WriteRegister(BK4819_REG_30, 
+		BK4819_REG_30_ENABLE_VCO_CALIB  |
+		BK4819_REG_30_ENABLE_DISC_MODE  |
+		BK4819_REG_30_ENABLE_PLL_VCO    |
+	 	BK4819_REG_30_ENABLE_AF_DAC);
+	else
 #endif
-	);
-
+		BK4819_WriteRegister(BK4819_REG_30, 0);
 	BK4819_WriteRegister(BK4819_REG_30,
 		BK4819_REG_30_ENABLE_VCO_CALIB |
 		BK4819_REG_30_DISABLE_UNKNOWN |
@@ -1153,7 +1169,10 @@ void BK4819_ExitBypass(void)
 
 void BK4819_PrepareTransmit(void)
 {
+#ifdef ENABLE_CW_MODULATOR
+	if(gTxVfo->Modulation != MODULATION_CW) 
 	BK4819_ExitBypass();
+#endif
 	BK4819_ExitTxMute();
 	BK4819_TxOn_Beep();
 }
@@ -1168,11 +1187,31 @@ void BK4819_TxOn_Beep(void)
 
 #ifdef ENABLE_CW_MODULATOR
 	if(gTxVfo->Modulation == MODULATION_CW) {
-		// Don't turn off the AF_DAC or DSP, it causes a pop
-		BK4819_WriteRegister(BK4819_REG_30, 0x0000 | BK4819_REG_30_ENABLE_AF_DAC | BK4819_REG_30_ENABLE_RX_DSP);
-	} else
+		// These bits are common to RX/TX, no need to turn off
+		BK4819_WriteRegister(BK4819_REG_30, 
+			BK4819_REG_30_ENABLE_VCO_CALIB  |
+			BK4819_REG_30_ENABLE_DISC_MODE  |
+			BK4819_REG_30_ENABLE_PLL_VCO	|
+			BK4819_REG_30_ENABLE_AF_DAC);  // AF DAC? Yeah, it prevents popping
+		BK4819_WriteRegister(BK4819_REG_30, (0xC1FE | BK4819_REG_30_ENABLE_AF_DAC | BK4819_REG_30_ENABLE_RX_DSP) & ~BK4819_REG_30_ENABLE_MIC_ADC);
+	} else 
+	{
 #endif
-		BK4819_WriteRegister(BK4819_REG_30, 0xC1FE);
+	BK4819_WriteRegister(BK4819_REG_30, 0);
+	BK4819_WriteRegister(BK4819_REG_30, // 0xC1FE equivalent...
+		BK4819_REG_30_ENABLE_VCO_CALIB   |
+		BK4819_REG_30_ENABLE_UNKNOWN     |
+		BK4819_REG_30_DISABLE_RX_LINK    |
+		BK4819_REG_30_DISABLE_AF_DAC     |
+		BK4819_REG_30_ENABLE_DISC_MODE   |
+		BK4819_REG_30_ENABLE_PLL_VCO     |
+		BK4819_REG_30_ENABLE_PA_GAIN     |
+		BK4819_REG_30_ENABLE_MIC_ADC     |
+		BK4819_REG_30_ENABLE_TX_DSP      |
+		BK4819_REG_30_DISABLE_RX_DSP);
+#ifdef ENABLE_CW_MODULATOR	
+	}
+#endif
 }
 
 void BK4819_ExitSubAu(void)

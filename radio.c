@@ -827,11 +827,6 @@ void RADIO_SetTxParameters(void)
 
 	BK4819_ToggleGpioOut(BK4819_GPIO0_PIN28_RX_ENABLE, false);
 
-	#ifdef ENABLE_CW_MODULATOR
-	RADIO_SetModulation(gTxVfo->Modulation);
-	#endif
-	
-
 	switch (Bandwidth)
 	{
 		default:
@@ -861,6 +856,11 @@ void RADIO_SetTxParameters(void)
 #endif
 	BK4819_SetFrequency(tx_frequency);
 
+#ifdef ENABLE_CW_MODULATOR
+	if(gTxVfo->Modulation == MODULATION_CW)
+		BK4819_WriteRegister(BK4819_REG_31, 0);  // all off
+	else
+#endif
 	// TX compressor
 	BK4819_SetCompander((gRxVfo->Modulation == MODULATION_FM && (gRxVfo->Compander == 1 || gRxVfo->Compander >= 3)) ? gRxVfo->Compander : 0);
 
@@ -1151,8 +1151,6 @@ void RADIO_PrepareCssTX(void)
 void RADIO_CW_BeginResume(void)
 {
 	gCW_State = CW_TRANSMITTING;
-
-	AUDIO_AudioPathOn();
 
 	// Setup and begin CW transmission, either first time or resuming after suspend
 	BK4819_SetupPowerAmplifier(gCurrentVfo->TXP_CalculatedSetting, gCurrentVfo->pTX->Frequency);

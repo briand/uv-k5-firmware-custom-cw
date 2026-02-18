@@ -60,6 +60,7 @@ typedef enum {
     CWK_STATE_INTER_ELEMENT_GAP,
     CWK_STATE_INTER_CHAR_GAP,    // Extended gap = end of character
     CWK_STATE_INTER_WORD_GAP,    // Long gap = inter-word space
+    CWK_STATE_EMIT_NONE,         // Force a NONE action from the keyer
 } CW_KeyerFSMState_t;
 
 static CW_KeyerFSMState_t s_KeyerFSMState = CWK_STATE_IDLE;
@@ -109,9 +110,9 @@ static uint8_t s_last_key_input_mode = 0xFF;
 bool gCW_FlashlightSending = false;
 #endif
 
-static void CW_KeyerResetRuntime(void)
+void CW_KeyerResetRuntime(void)
 {
-    s_KeyerFSMState = CWK_STATE_IDLE;
+    s_KeyerFSMState = CWK_STATE_EMIT_NONE;
 
     s_elem_start_count = timer_millis_low16();
 
@@ -144,6 +145,10 @@ void CW_KeyerReconfigure(bool enable)
         return;
     }
 
+    // take over PTT and SIDE1 (if was or is in the INPUT set) immediately
+    gCW_KeyerManagesPtt = true;
+    gCW_KeyerUsingSD1 |= gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_SIDE1;
+    CW_KeyerResetRuntime();
     s_cfg_dirty = true; // Defer init until idle or gap
 }
 
@@ -543,6 +548,7 @@ CW_Action_t CW_HandleState(void)
     // Apply pending init if needed.
     if (s_cfg_dirty && s_KeyerFSMState == CWK_STATE_IDLE) {
         CW_KeyerInit();
+        return CW_ACTION_NONE;
     } else if (!s_enable_keyer) {
         return action;
     }
@@ -551,30 +557,21 @@ CW_Action_t CW_HandleState(void)
 
     // Check if keyer is disabled (handkey modes have NO_KEYER flag set)
     if (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_NO_KEYER) {
-#if CW_KEYER_DEBUG
-        static uint32_t handkey_log_count = 0;
-        if (++handkey_log_count % 1000 == 0) {
-            UART_Send("CW in handkey mode\r\n", 20);
-        }
-#endif
         return ptt_action();
     }
-
-#if CW_KEYER_DEBUG
-    // Log state changes
-    if (s_KeyerFSMState != last_logged_state) {
-        const char* state_names[] = {"IDLE", "ACTIVE_ELEMENT", "INTER_ELEM", "INTER_CHAR", "INTER_WORD"};
-        char buf[60];
-        sprintf_(buf, "STATE: %s -> %s (%s)\r\n", state_names[last_logged_state], state_names[s_KeyerFSMState], s_active_is_dit ? "dit" : "dah");
-        UART_Send(buf, strlen(buf));
-        last_logged_state = s_KeyerFSMState;
-    }
-#endif
 
     // Input struct - will be sampled at appropriate times in each state
     CW_Input in = {0};
 
-    switch (s_KeyerFSMState) {
+    switch (s_KeyerFSMState) {    
+    ///
+    ///  EMIT NONE
+    ///
+    case CWK_STATE_EMIT_NONE:
+        s_KeyerFSMState = CWK_STATE_IDLE;
+        action = CW_ACTION_NONE;
+        break;
+
     ///
     ///  IDLE
     ///

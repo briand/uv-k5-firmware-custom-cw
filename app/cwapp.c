@@ -108,7 +108,6 @@ void CW_AppUpdate(void)
 		switch (action)
 		{
 			case CW_ACTION_CARRIER_ON:
-				AUDIO_AudioPathOn();
 				BK4819_SetAF(BK4819_AF_ALAM);
 				BK4819_WriteRegister(BK4819_REG_70,
 					BK4819_REG_70_ENABLE_TONE1 |

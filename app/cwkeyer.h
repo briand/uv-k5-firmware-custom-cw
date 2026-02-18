@@ -37,6 +37,9 @@ CW_Action_t CW_HandleState(void);
 // Set CW keyer speed from EEPROM; updates internal timing parameters
 void CW_UpdateWPM();
 
+// Reset keyer state, to transition modes like CPO safely
+void CW_KeyerResetRuntime(void);
+
 // Optional: request reconfigure at next safe boundary (applied at gap or idle)
 void CW_KeyerReconfigure(bool enable);
 

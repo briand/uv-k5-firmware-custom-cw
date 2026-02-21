@@ -180,7 +180,7 @@ static void CW_ReadADCkeys(bool *tip_out, bool *ring_out)
 bool CW_ReadKeysForMode(uint8_t mode, bool *dit_out, bool *dah_out)
 {
     // Check if keyer is disabled (handkey modes)
-    if (mode & CW_KEY_FLAG_NO_KEYER) {
+    if (mode & CW_KEY_FLAG_NO_KEYER && !(mode & CW_KEY_FLAG_PORT_GROUND)) {
         return false;
     }
 

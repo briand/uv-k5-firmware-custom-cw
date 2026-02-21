@@ -418,8 +418,8 @@ bool CW_CheckKeyerInputs(uint8_t new_mode)
     // hard deconfig, get all pins in a known state
     CW_KeyerDeinit();
     
-    // Handkey mode doesn't need further validation (no keyer flag set)
-    if (new_mode & CW_KEY_FLAG_NO_KEYER) {
+    // Handkey mode without port ground doesn't need further validation
+    if (new_mode & CW_KEY_FLAG_NO_KEYER && !(new_mode & CW_KEY_FLAG_PORT_GROUND)) {
         return true;
     }
     

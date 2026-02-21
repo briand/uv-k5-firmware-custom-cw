@@ -1950,7 +1950,6 @@ Skip:
 		RADIO_SelectVfos();
 
 #ifdef ENABLE_CW_MODULATOR
-	if(gFlagReconfigureVfos)
 		CW_KeyerReconfigure(gTxVfo->Modulation==MODULATION_CW);
 #endif
 

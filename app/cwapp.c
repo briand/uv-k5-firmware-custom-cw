@@ -183,6 +183,11 @@ void CW_AppUpdate(void)
 		break;
 
 		case CW_ACTION_NONE:
+			if(gCW_State == CW_TRANSMITTING) {
+				// if we've been transmitting but now have no carrier, suspend
+				RADIO_CW_Suspend();
+				gCW_SuspendCounter_1ms = timer_millis_low16();
+			}
 		default:
 		break;
 	}

@@ -127,6 +127,8 @@ void CW_KeyerResetRuntime(void)
 // Called when changing to non-CW mode
 static void CW_KeyerDeinit()
 {
+    CW_KeyerResetRuntime();
+
     // ADC deinit performs the port ground deinit too
     CW_ConfigureADCforCECPaddles(false);
     CW_ConfigurePortRing(false); // make sure PB15 is an input with no pullup, to avoid affecting the line if shorted to mic (keyer rework)
@@ -139,6 +141,14 @@ static void CW_KeyerDeinit()
 
 void CW_KeyerReconfigure(bool enable)
 {
+#if CW_KEYER_DEBUG
+    if (enable) {
+        UART_Send("reconfig true\r\n", 14);
+    } else {
+        UART_Send("reconfig false\r\n", 15);
+    }
+#endif
+
     if (!enable) { 
         CW_KeyerDeinit();
         s_cfg_dirty = false;
@@ -177,14 +187,20 @@ static void CW_KeyerInit()
 {
     const uint8_t key_input_mode = gEeprom.CW_KEY_INPUT;
 
+#if CW_KEYER_DEBUG
+    char buf[80];
+    sprintf_(buf, "CW_KeyerInit: enabled:%u WPM=%u last_mode=%u key_input_mode=%u\r\n", 
+             s_enable_keyer, gEeprom.CW_KEY_WPM, s_last_key_input_mode, key_input_mode);
+    UART_Send(buf, strlen(buf));
+#endif
+
     CW_UpdateWPM();
-    // Same input mode as last successful init: only refresh timing.
+    CW_KeyerResetRuntime();
+    s_cfg_dirty = false;
+    // Keyer is already enabled with this mode
     if (s_enable_keyer && s_last_key_input_mode == key_input_mode) {
-        s_cfg_dirty = false;
         return;
     }
-
-    CW_KeyerResetRuntime();
 
     bool uses_port_ground = (key_input_mode & CW_KEY_FLAG_PORT_GROUND) != 0;
     bool uses_port_ring   = (key_input_mode & CW_KEY_FLAG_PORT_RING) != 0;
@@ -197,7 +213,6 @@ static void CW_KeyerInit()
 
     gCW_KeyerUsingSD1 = (key_input_mode & CW_KEY_FLAG_SIDE1) != 0;
     s_last_key_input_mode = key_input_mode;
-    s_cfg_dirty = false;
     s_enable_keyer = true;
     gCW_KeyerManagesPtt = true;
 }
@@ -541,16 +556,13 @@ CW_Action_t CW_HandleState(void)
     // Default action: carrier is off and stays off (gap or idle)
     CW_Action_t action = CW_ACTION_NONE;
 
-#if CW_KEYER_DEBUG
-    static CW_KeyerFSMState_t last_logged_state = CWK_STATE_IDLE;
-#endif
-
     // Apply pending init if needed.
     if (s_cfg_dirty && s_KeyerFSMState == CWK_STATE_IDLE) {
         CW_KeyerInit();
         return CW_ACTION_NONE;
-    } else if (!s_enable_keyer) {
-        return action;
+    } else if(s_KeyerFSMState == CWK_STATE_EMIT_NONE || !s_enable_keyer) {
+        s_KeyerFSMState = CWK_STATE_IDLE;
+        return CW_ACTION_NONE;
     }
 
     const uint16_t cur_count = timer_millis_low16();
@@ -563,15 +575,7 @@ CW_Action_t CW_HandleState(void)
     // Input struct - will be sampled at appropriate times in each state
     CW_Input in = {0};
 
-    switch (s_KeyerFSMState) {    
-    ///
-    ///  EMIT NONE
-    ///
-    case CWK_STATE_EMIT_NONE:
-        s_KeyerFSMState = CWK_STATE_IDLE;
-        action = CW_ACTION_NONE;
-        break;
-
+    switch (s_KeyerFSMState) {
     ///
     ///  IDLE
     ///

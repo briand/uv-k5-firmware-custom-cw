@@ -37,6 +37,13 @@
 
 #define ENABLE_CEC_KEYER_DEBUG 0
 
+// earlier beta rework used PB15 for ring input
+#ifdef USE_B15_FOR_RING
+    #define CW_KEYER_RING_GPIO_BIT BPIOB_PIN_BK1080
+#else
+    #define CW_KEYER_RING_GPIO_BIT GPIOB_PIN_SWD_IO
+#endif
+
 // Local state for last sampled paddles (edge detection)
 static bool s_last_dit = false;
 static bool s_last_dah = false;
@@ -212,7 +219,7 @@ bool CW_ReadKeysForMode(uint8_t mode, bool *dit_out, bool *dah_out)
 
     // Read port ring input if enabled and OR with button ring
     if (mode & CW_KEY_FLAG_PORT_RING) {
-        bool port_ring = CW_ReadGpioDeglitched(&GPIOB->DATA, GPIOB_PIN_BK1080, true);
+        bool port_ring = CW_ReadGpioDeglitched(&GPIOB->DATA, CW_KEYER_RING_GPIO_BIT, true);
         hw_ring = hw_ring || port_ring;  // OR both sources
     }
 
@@ -288,11 +295,12 @@ void CW_ConfigurePortGround(bool enable)
 #endif
 }
 
-// FM Radio is disabled on this firmware, we *always* configure
-// PB15 as an input, because the radio might have the line reworked
-// onto the mic input, and we don't want to affect that.
+// PB11 is also the SWDIO pin, so we can't use it for ring input when SWD is active.
+// Some code claims PB11 is shared with the ST7565, but it's not on board 1.4 and up at least.
+// PB15 was the old beta Ring pin - it's here in case someone still wants to use that
 void CW_ConfigurePortRing(bool enable)
 {
+#ifdef USE_B15_FOR_RING
     if (enable) {
         // Configure PB15 as GPIO input (ring)
         GPIOB->DIR &= ~(0 | GPIO_DIR_15_MASK); // PB15 as INPUT
@@ -304,6 +312,19 @@ void CW_ConfigurePortRing(bool enable)
         PORTCON_PORTB_IE &= ~PORTCON_PORTB_IE_B15_BITS_ENABLE; // Disable input buffer
         PORTCON_PORTB_PU &= ~PORTCON_PORTB_PU_B15_BITS_ENABLE; // deactivate the PB15 pullup
     }
+#else
+    if (enable) {
+        // Configure PB11 as GPIO input (ring)
+        GPIOB->DIR &= ~(0 | GPIO_DIR_11_MASK); // PB11 as INPUT
+        PORTCON_PORTB_IE |= PORTCON_PORTB_IE_B11_BITS_ENABLE; // Enable input buffer
+        PORTCON_PORTB_PU |= PORTCON_PORTB_PU_B11_BITS_ENABLE; // activate the PB11 pullup
+    } else {
+        // we want to avoid affecting the line if shorted to mic, so float it
+        GPIOB->DIR &= ~GPIO_DIR_11_MASK; // PB11 *still* as INPUT
+        PORTCON_PORTB_IE &= ~PORTCON_PORTB_IE_B11_BITS_ENABLE; // Disable input buffer
+        PORTCON_PORTB_PU &= ~PORTCON_PORTB_PU_B11_BITS_ENABLE; // deactivate the PB11 pullup
+    }
+#endif
 #if ENABLE_KEYER_DEBUG
     char buf[50];
     sprintf_(buf, "Port Ring %s\r\n", enable ? "Enabled" : "Disabled");

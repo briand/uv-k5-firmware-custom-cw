@@ -74,3 +74,27 @@ jobs:
           overwrite: true
           release_name: release ${{ env.RELEASE_TAG }}
 
+      - name: Build B15 ring firmware
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          make clean
+          make CFLAGS="-DUSE_B15_FOR_RING"
+
+      - name: 'Upload B15 Artifact'
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware_ring_b15
+          path: firmware*.bin
+
+      - name: Upload B15 firmware to release
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: firmware.packed.bin
+          asset_name: nr7y_ring_b15_${{ env.RELEASE_TAG }}.packed.bin
+          tag: ${{ github.ref }}
+          overwrite: true
+          release_name: release ${{ env.RELEASE_TAG }}
+

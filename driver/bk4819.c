@@ -17,10 +17,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include <string.h>
-#include "driver/uart.h"
-#include "external/printf/printf.h"
-
 #include "settings.h"
 
 #include "../audio.h"
@@ -705,9 +701,6 @@ void BK4819_SetupPowerAmplifier(const uint8_t bias, const uint32_t frequency)
 
 void BK4819_SetFrequency(uint32_t Frequency)
 {
-	char buf[64];
-	sprintf_(buf, "BK4819_SetFrequency: %lu\r\n", (unsigned long)Frequency);
-	UART_Send(buf, strlen(buf));
 	BK4819_WriteRegister(BK4819_REG_38, (Frequency >>  0) & 0xFFFF);
 	BK4819_WriteRegister(BK4819_REG_39, (Frequency >> 16) & 0xFFFF);
 }

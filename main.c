@@ -113,7 +113,20 @@ void Main(void)
 
 	RADIO_SelectVfos();
 
+#ifdef ENABLE_CW_MODULATOR
+	// CW/USB always start in monitor mode
+	if (gRxVfo->Modulation == MODULATION_CW || gRxVfo->Modulation == MODULATION_USB)
+		gMonitor = true;
+#endif
+
 	RADIO_SetupRegisters(true);
+
+#ifdef ENABLE_CW_MODULATOR
+	if (gMonitor){
+		BK4819_ToggleGpioOut(BK4819_GPIO6_PIN2_GREEN, true);
+		APP_StartListening(FUNCTION_MONITOR);
+	}
+#endif
 
 	for (unsigned int i = 0; i < ARRAY_SIZE(gBatteryVoltages); i++)
 		BOARD_ADC_GetBatteryInfo(&gBatteryVoltages[i], &gBatteryCurrent);

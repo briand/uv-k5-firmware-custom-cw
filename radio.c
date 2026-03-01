@@ -42,7 +42,6 @@
 #include "ui/menu.h"
 #include "driver/uart.h"
 
-#include "external/printf/printf.h" // briand
 VFO_Info_t    *gTxVfo;
 VFO_Info_t    *gRxVfo;
 VFO_Info_t    *gCurrentVfo;
@@ -439,8 +438,8 @@ void RADIO_ConfigureSquelchAndOutputPower(VFO_Info_t *pInfo)
 		
 	if (gEeprom.SQUELCH_LEVEL == 0
 	#ifdef ENABLE_CW_MODULATOR
-		|| pInfo->Modulation == MODULATION_CW
-		|| pInfo->Modulation == MODULATION_USB
+		|| ((pInfo->Modulation == MODULATION_CW ||
+		     pInfo->Modulation == MODULATION_USB) && gMonitor)
 	#endif
 	)
 	{	// squelch == 0 (off)
@@ -576,7 +575,7 @@ void RADIO_SetupRegisters(bool switchToForeground)
 	BK4819_FilterBandwidth_t Bandwidth = gRxVfo->CHANNEL_BANDWIDTH;
 
 #ifdef ENABLE_CW_MODULATOR
-	if (gRxVfo->Modulation != MODULATION_CW)
+	if (gRxVfo->Modulation != MODULATION_CW || !gMonitor)
 #endif
 	AUDIO_AudioPathOff();
 
@@ -928,6 +927,7 @@ void RADIO_SetModulation(ModulationMode_t modulation)
 		case MODULATION_CW:
 #endif	
 		case MODULATION_USB:
+			gMonitor = true;
 			mod = BK4819_AF_BASEBAND2;
 			break;
 

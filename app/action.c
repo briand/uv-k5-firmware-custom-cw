@@ -163,7 +163,16 @@ void ACTION_Monitor(void)
 		if (IS_NOAA_CHANNEL(gRxVfo->CHANNEL_SAVE) && gIsNoaaMode)
 			gNoaaChannel = gRxVfo->CHANNEL_SAVE - NOAA_CHANNEL_FIRST;
 #endif
+#ifdef ENABLE_CW_MODULATOR
+		// set gMonitor so we get open squelch
+		if (gRxVfo->Modulation == MODULATION_CW || gRxVfo->Modulation == MODULATION_USB)
+			gMonitor = true;
+#endif
 		RADIO_SetupRegisters(true);
+#ifdef ENABLE_CW_MODULATOR
+		if (gMonitor)
+			BK4819_ToggleGpioOut(BK4819_GPIO6_PIN2_GREEN, true);
+#endif
 		APP_StartListening(FUNCTION_MONITOR);
 		return;
 	}
@@ -277,9 +286,11 @@ void ACTION_SwitchDemodul(void)
 		gTxVfo->Modulation = MODULATION_FM;
 
 #ifdef ENABLE_CW_MODULATOR
-	// Arm/dearm keyer ownership immediately so a very quick PTT press after
-	// switching to CW cannot beat deferred reconfigure/save paths.
 	CW_KeyerReconfigure(gTxVfo->Modulation == MODULATION_CW);
+
+	// CW/USB default to monitor mode (open squelch); other modes start squelched.
+	gMonitor = (gTxVfo->Modulation == MODULATION_CW ||
+	            gTxVfo->Modulation == MODULATION_USB);
 #endif
 
 	// Reconfigure radio path now (not only on later key release/save handling).

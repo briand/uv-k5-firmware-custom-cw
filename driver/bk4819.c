@@ -27,6 +27,7 @@
 #include "gpio.h"
 #include "system.h"
 #include "systick.h"
+#include "../misc.h"
 
 
 #ifndef ARRAY_SIZE
@@ -789,9 +790,10 @@ void BK4819_SetupSquelch(
 	BK4819_WriteRegister(BK4819_REG_78, ((uint16_t)SquelchOpenRSSIThresh   << 8) | SquelchCloseRSSIThresh);
 
 #ifdef ENABLE_CW_MODULATOR
-	if(gRxVfo->Modulation != MODULATION_CW)
-#endif		
-	BK4819_SetAF(BK4819_AF_MUTE);
+	// Only skip AF_MUTE for CW while monitor mode is active
+	if(gRxVfo->Modulation != MODULATION_CW || !gMonitor)
+#endif
+		BK4819_SetAF(BK4819_AF_MUTE);
 
 	BK4819_RX_TurnOn();
 }

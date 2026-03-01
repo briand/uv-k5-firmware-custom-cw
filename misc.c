@@ -106,9 +106,6 @@ bool              gSetting_live_DTMF_decoder;
 uint8_t           gSetting_battery_text;
 
 bool              gMonitor = false;           // true opens the squelch
-#ifdef ENABLE_CW_MODULATOR
-bool              gMonitorTemp = false;       // temporary monitor (CW/SSB), non-latching
-#endif
 
 uint32_t          gCustomAesKey[4];
 bool              bHasCustomAesKey;

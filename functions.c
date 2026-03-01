@@ -126,6 +126,9 @@ void FUNCTION_PowerSave() {
 
 	gRxIdleMode = true;
 
+#ifdef ENABLE_CW_MODULATOR
+	if (gRxVfo->Modulation != MODULATION_CW && gRxVfo->Modulation != MODULATION_USB)
+#endif
 	gMonitor = false;
 
 	BK4819_DisableVox();
@@ -298,13 +301,7 @@ void FUNCTION_Select(FUNCTION_Type_t Function)
 			break;
 
 		case FUNCTION_MONITOR:
-			#ifdef ENABLE_CW_MODULATOR
-				if (!gMonitorTemp)
-					gMonitor = true;
-				gMonitorTemp = false;
-			#else
-				gMonitor = true;
-			#endif
+			gMonitor = true;
 			break;
 
 		case FUNCTION_INCOMING:

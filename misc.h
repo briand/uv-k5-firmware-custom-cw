@@ -163,9 +163,6 @@ extern bool                  gSetting_live_DTMF_decoder;
 extern uint8_t               gSetting_battery_text;
 
 extern bool                  gMonitor;
-#ifdef ENABLE_CW_MODULATOR
-extern bool                  gMonitorTemp;
-#endif
 
 extern const uint32_t        gDefaultAesKey[4];
 extern uint32_t              gCustomAesKey[4];

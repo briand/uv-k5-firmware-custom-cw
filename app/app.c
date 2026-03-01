@@ -242,15 +242,7 @@ static void HandleIncoming(void)
 	}
 #endif
 
-#ifdef ENABLE_CW_MODULATOR
-	gMonitorTemp = (gCurrentVfo->Modulation == MODULATION_CW ||
-			       gCurrentVfo->Modulation == MODULATION_USB);
-#endif
-	APP_StartListening(gMonitor
-#ifdef ENABLE_CW_MODULATOR
-			|| gMonitorTemp
-#endif
-		? FUNCTION_MONITOR : FUNCTION_RECEIVE);
+	APP_StartListening(gMonitor ? FUNCTION_MONITOR : FUNCTION_RECEIVE);
 }
 
 static void HandleReceive(void)
@@ -706,8 +698,18 @@ static void CheckRadioInterrupts(void)
 #endif
 
 		if (interrupts.sqlLost) {
-			g_SquelchLost = true;
-			BK4819_ToggleGpioOut(BK4819_GPIO6_PIN2_GREEN, true);
+#ifdef ENABLE_CW_MODULATOR
+			// When monitor mode is off for CW/USB, the noise floor in the CW/SSB
+			// RX path often exceeds the squelch threshold, so the BK4819 fires
+			// sqlLost immediately. Suppress it here so audio stays muted and
+			// gCurrentFunction stays in FOREGROUND rather than RECEIVE/INCOMING.
+			if (!((gRxVfo->Modulation == MODULATION_CW ||
+			       gRxVfo->Modulation == MODULATION_USB) && !gMonitor))
+#endif
+			{
+				g_SquelchLost = true;
+				BK4819_ToggleGpioOut(BK4819_GPIO6_PIN2_GREEN, true);
+			}
 		}
 
 		if (interrupts.sqlFound) {

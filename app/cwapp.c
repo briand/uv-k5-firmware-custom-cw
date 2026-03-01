@@ -66,7 +66,13 @@ void CW_EndTxNow(void)
 
 	RADIO_SetVfoState(VFO_STATE_NORMAL);  // only variables
     RADIO_SelectVfos();                   // only variables
-    APP_StartListening(FUNCTION_MONITOR);  // does AudioPathOn
+    // Respect the user's monitor-mode preference: if they turned monitor off
+    // while in CW, return to FOREGROUND and wait for squelch; otherwise
+    // immediately go back to open-squelch monitor listening.
+    if (gMonitor)
+        APP_StartListening(FUNCTION_MONITOR);
+    // else: already in FUNCTION_FOREGROUND; CheckForIncoming() will open
+    // audio when a signal arrives and trips the squelch interrupt.
 }
 
 // ---------------------------------------------------------------------------

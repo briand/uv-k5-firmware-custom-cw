@@ -14,6 +14,12 @@ Upload using your favorite Quansheng flash tool. I use k5tool (https://github.co
  2. Release buttons, menu will be automatically presented.
  3. Go up to Reset and pick ALL. 
 
+## Changelist from beta5 -> beta6
+- Monitor mode is available in CW/SSB - these modes default to monitor on / squelch open. If a button is mapped to MONITOR, it can be used to close the squelch. This works inverse to FM mode. If modulation is changed away and back to CW/SSB, squelch will be back open again (not saved).
+- Slightly modified the keyer rework. It now uses a different location inside the radio for the RING connection, to avoid requiring soldering to a very small surface mount transistor leg. The rework instructions are updated accordingly. The default firmware build now follows the updated rework; for radios where the beta rework was applied use the "ring b15" firmware binary.
+- Fixed a bug where changing frequency didn't actually change the transmit frequency internally
+- If no additional bugs are reported, I'll re-release this version as 1.0
+
 ## Changelist from beta4 -> beta5
 The "smooth operator" release - the only feature here is an improvement in audio behavior when going between RX/TX, switching frequencies, and modes like menu and keyer changes. These previously caused popping noises, and I've been able to eliminate most or all of them. After that, we're down to polishing and bugfixes; this is likely last beta before I call it 1.0.
 

@@ -765,8 +765,14 @@ void MENU_AcceptSetting(void)
 			break;
 
 		case MENU_AM:
-			gTxVfo->Modulation     = gSubMenuSelection;
+			gTxVfo->Modulation  = gSubMenuSelection;
 			gRequestSaveChannel = 1;
+#ifdef ENABLE_CW_MODULATOR
+			CW_KeyerReconfigure(gTxVfo->Modulation == MODULATION_CW);
+			gMonitor = (gTxVfo->Modulation == MODULATION_CW ||
+			            gTxVfo->Modulation == MODULATION_USB);
+			gFlagReconfigureVfos = true;
+#endif
 			return;
 
 		#ifdef ENABLE_AM_FIX

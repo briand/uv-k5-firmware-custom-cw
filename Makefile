@@ -428,6 +428,10 @@ ifeq ($(ENABLE_CUSTOM_MENU_LAYOUT),1)
 	CFLAGS  += -DENABLE_CUSTOM_MENU_LAYOUT
 endif
 
+# Allow extra defines to be injected from the command line without
+# overriding the full CFLAGS set (e.g. make EXTRA_CFLAGS=-DUSE_B15_FOR_RING)
+CFLAGS += $(EXTRA_CFLAGS)
+
 LDFLAGS =
 LDFLAGS += -z noexecstack -mcpu=cortex-m0 -nostartfiles -Wl,-T,firmware.ld -Wl,--gc-sections
 

@@ -39,7 +39,7 @@
 
 // earlier beta rework used PB15 for ring input
 #ifdef USE_B15_FOR_RING
-    #define CW_KEYER_RING_GPIO_BIT BPIOB_PIN_BK1080
+    #define CW_KEYER_RING_GPIO_BIT GPIOB_PIN_BK1080
 #else
     #define CW_KEYER_RING_GPIO_BIT GPIOB_PIN_SWD_IO
 #endif

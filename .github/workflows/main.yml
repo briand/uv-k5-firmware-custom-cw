@@ -78,7 +78,7 @@ jobs:
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         run: |
           make clean
-          make CFLAGS="-DUSE_B15_FOR_RING"
+          make EXTRA_CFLAGS="-DUSE_B15_FOR_RING"
 
       - name: 'Upload B15 Artifact'
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}

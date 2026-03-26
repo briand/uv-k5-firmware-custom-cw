@@ -97,7 +97,7 @@ static bool CW_ReadGpioDeglitched(volatile uint32_t *gpio_data, uint8_t pin_bit,
     uint32_t goal = heavy ? 300 : 60;  // need this many stable samples
 
     for (i = 0, k = 0, reg = 0; i < goal && k < limit; i++, k++) {
-        SYSTICK_DelayUs(1);
+        SYSTICK_DelayUs(10);
         reg2 = (*gpio_data) & (1U << pin_bit);
         i *= (reg == reg2);  // Reset i if readings differ
         reg = reg2;

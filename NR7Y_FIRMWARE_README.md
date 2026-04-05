@@ -2,7 +2,7 @@ NR7Y CW firmware README
 
 # Beta5
 > [!IMPORTANT]
-> This firmware only works on "V1" firmware. How do you know? Well, you kinda don't. If you bought your radio early last year, it's V1. If you bought it late last year, it could be V2. If you bought it in 2026, it could be V3! Most (all?) V3 radios are marked as such on the label under the battery.
+> This firmware only works on "V1" hardware. How do you know? Well, you kinda don't. If you bought your radio early last year, it's V1. If you bought it late last year, it could be V2. If you bought it in 2026, it could be V3! Most (all?) V3 radios are marked as such on the label under the battery. Some vendors specifically promote that their listing a V3, but not all.
 > 
 > If the flashing process doesn't work, you know you don't have a V1. You should still be able to flash back to the original factory firmware; online sources have it available. I will work on a V2/V3 compatible version of the firmware soon. Note: Bootloader version is not the same as radio hardware version; it's ok if you see "bootloader version 2.xx" during flashing.
 

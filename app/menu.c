@@ -1676,6 +1676,7 @@ static void MENU_Key_MENU(const bool bKeyPressed, const bool bKeyHeld)
 		if (UI_MENU_GetCurrentMenuId() == MENU_CW_CRD)
 		{
 			CW_KeyerReconfigure(false);  // halt the keyer
+			gCW_KeyerManagesPtt = true;   // block normal PTT path while PTT pin is reconfigured as output
 			CW_ConfigureADCforCECPaddles(true);
 			gCW_AdcReadActive = true;
 			edit_index = 0;  // Use edit_index >= 0 to signal read mode

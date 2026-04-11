@@ -135,29 +135,21 @@ static void CW_ReadPtt(bool *ptt_out)
 uint16_t CW_ReadCH3()
 {    
     ADC_Start();
-    while (!ADC_CheckEndOfConversion(ADC_CH3)) {}
+    while (!ADC_CheckEndOfConversion(ADC_CH9)){} // ADC_CH3)) {}
     return ADC_GetValue(ADC_CH3);
 }
 
 
 static void CW_ReadADCkeys(bool *tip_out, bool *ring_out)
 {
-    // Take baseline ADC sample with timing
-    // uint16_t start_tick = timer_jiffies();
-    
-    // being absolutely paranoid about performance, we enable only CH3 for this loop, then set back
-    uint32_t regval = SARADC_CFG;
-    SARADC_CFG = (regval & ~SARADC_CFG_CH_SEL_MASK) | (ADC_CH3 << SARADC_CFG_CH_SEL_SHIFT);
-
     uint16_t baseline = CW_ReadCH3();
 
     // Validate with up to 4 more samples - stop if any differs by >40 from baseline
     uint16_t val = baseline;
-    int samples_taken = 1;
     
     for (int i = 0; i < 12; i++) {
         uint16_t sample = CW_ReadCH3();
-        samples_taken++;
+        //samples_taken++;
         
         int16_t diff = (int16_t)sample - (int16_t)baseline;
         if (diff < 0) diff = -diff;
@@ -168,13 +160,6 @@ static void CW_ReadADCkeys(bool *tip_out, bool *ring_out)
             SYSTICK_DelayUs(5);  // Short delay before next sample
         }
     }
-    SARADC_CFG = regval;  // Restore original channel config so battery monitoring etc. still works
-    
-    // uint16_t elapsed = timer_jiffies_since(start_tick);
-    // Log timing and validation
-    // char log_buf[64];
-    // sprintf(log_buf, "ADC: %u jiffies, %d samples, baseline=%u->%u\r\n", elapsed, samples_taken, baseline, val);
-    // UART_LogSend(log_buf, strlen(log_buf));
 
     if (val < gEeprom.CW_ADC_CABLE_20K - CW_ADC_RANGE_LIMIT || val > CW_ADC_MAX) return;  // no paddle pressed or fault
     else if (val < gEeprom.CW_ADC_CABLE_20K + CW_ADC_RANGE_LIMIT) *ring_out = true;  // 20k ohm

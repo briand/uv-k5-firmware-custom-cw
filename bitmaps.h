@@ -21,6 +21,10 @@ extern const uint8_t BITMAP_F_Key[6];
 	extern const uint8_t BITMAP_VOX[18];
 #endif
 
+#ifdef ENABLE_CW_MODULATOR
+	extern const uint8_t BITMAP_BKIN[18];
+#endif
+
 extern const uint8_t BITMAP_XB[12];
 
 extern const uint8_t BITMAP_TDR1[16];

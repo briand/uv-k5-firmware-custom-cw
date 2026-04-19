@@ -165,6 +165,37 @@ const uint8_t BITMAP_F_Key[6] =
 	};
 #endif
 
+#ifdef ENABLE_CW_MODULATOR
+	const uint8_t BITMAP_BKIN[18] =
+	{	// "BKIN" - CW break-in indicator
+		0b00000000,
+		// B (4 cols)
+		0b01111111,
+		0b01001001,
+		0b01001001,
+		0b00110110,
+		// gap
+		0b00000000,
+		// K (4 cols)
+		0b01111111,
+		0b00010100,
+		0b00100010,
+		0b01000001,
+		// gap
+		0b00000000,
+		// I (1 col)
+		0b01111111,
+		// gap
+		0b00000000,
+		// N (5 cols)
+		0b01111111,
+		0b00000100,
+		0b00001000,
+		0b00010000,
+		0b01111111
+	};
+#endif
+
 
 // 'XB' (cross-band/cross-VFO)
 const uint8_t BITMAP_XB[12] =

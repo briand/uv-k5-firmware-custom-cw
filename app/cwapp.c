@@ -117,18 +117,22 @@ void CW_AppUpdate(void)
 		switch (action)
 		{
 			case CW_ACTION_CARRIER_ON:
-				BK4819_SetAF(BK4819_AF_ALAM);
-				BK4819_WriteRegister(BK4819_REG_70,
-					BK4819_REG_70_ENABLE_TONE1 |
-					(gEeprom.CW_SIDETONE_LEVEL << BK4819_REG_70_SHIFT_TONE1_TUNING_GAIN));
-				BK4819_SetScrambleFrequencyControlWord(gEeprom.CW_TONE_FREQUENCY * 10);
-				#ifdef ENABLE_FLASHLIGHT
-				if (gCW_FlashlightSending) {
-					GPIO_SetBit(&GPIOC->DATA, GPIOC_PIN_FLASHLIGHT);
-				}
-				#endif
-				gCW_TxDisplayHoldoff_10ms = 200;
-			break;
+			if (gCW_State == CW_INACTIVE && !AUDIO_IsAudioPathOn()) {
+				AUDIO_AudioPathOn();
+				SYSTEM_DelayMs(10);
+			}
+			BK4819_SetAF(BK4819_AF_ALAM);
+			BK4819_WriteRegister(BK4819_REG_70,
+				BK4819_REG_70_ENABLE_TONE1 |
+				(gEeprom.CW_SIDETONE_LEVEL << BK4819_REG_70_SHIFT_TONE1_TUNING_GAIN));
+			BK4819_SetScrambleFrequencyControlWord(gEeprom.CW_TONE_FREQUENCY * 10);
+			#ifdef ENABLE_FLASHLIGHT
+			if (gCW_FlashlightSending) {
+				GPIO_SetBit(&GPIOC->DATA, GPIOC_PIN_FLASHLIGHT);
+			}
+			#endif
+			gCW_TxDisplayHoldoff_10ms = 200;
+		break;
 
 			case CW_ACTION_CARRIER_OFF:
 				BK4819_SetScrambleFrequencyControlWord(0);
@@ -161,6 +165,11 @@ void CW_AppUpdate(void)
 
 			if (gCW_State == CW_INACTIVE)
 			{
+				if(!AUDIO_IsAudioPathOn())
+				{
+					AUDIO_AudioPathOn();
+					SYSTEM_DelayMs(20);
+				}
 				RADIO_PrepareTX();
 			}
 			else if (gCW_State == CW_SUSPENDED) {

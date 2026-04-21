@@ -700,7 +700,7 @@ void UI_DisplayMain(void)
 
 #ifdef ENABLE_CW_MODULATOR
 		if (vfoInfo->Modulation == MODULATION_CW && gCW_CrossMode)
-			UI_PrintStringSmallNormal("x", LCD_WIDTH + 40, 0, line + 1);
+			UI_PrintStringSmallNormal("x", LCD_WIDTH + 39, 0, line + 1);
 #endif
 
 		if (state == VFO_STATE_NORMAL || state == VFO_STATE_ALARM)

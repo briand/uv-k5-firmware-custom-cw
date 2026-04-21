@@ -121,6 +121,7 @@ void CW_AppUpdate(void)
 				AUDIO_AudioPathOn();
 				SYSTEM_DelayMs(10);
 			}
+			BACKLIGHT_TurnOn();
 			BK4819_SetAF(BK4819_AF_ALAM);
 			BK4819_WriteRegister(BK4819_REG_70,
 				BK4819_REG_70_ENABLE_TONE1 |
@@ -161,7 +162,8 @@ void CW_AppUpdate(void)
 		case CW_ACTION_CARRIER_ON:
 			gTxTimerCountdown_500ms = 0;
 			gCW_TxDisplayHoldoff_10ms = 200;
-			gPttIsPressed = true;  // makes backlight come on, among other things
+			gPttIsPressed = true;
+			BACKLIGHT_TurnOn();
 
 			if (gCW_State == CW_INACTIVE)
 			{

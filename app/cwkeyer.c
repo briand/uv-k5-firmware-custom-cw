@@ -77,8 +77,7 @@ static bool           s_active_is_dit = false;
 static bool           s_pending_alternate = false; // alternate element queued
 /* last sampled paddles moved to app/cwhardware.c */
 static bool           s_last_handkey_ptt = false; // last PTT state for handkey mode
-
-// Macro playback state
+static uint16_t       s_elem_deadline_extra_ms = 0; // extra ms added to first-element deadline when audio path must be opened
 static char s_playback_buf[CW_MACRO_MAX_LEN * 2 + 1]; // decoded with spaces inserted
 static uint16_t s_playback_buf_len = 0; // strlen of the buffer
 static uint16_t s_playback_pos = 0; // index into playback buffer
@@ -606,6 +605,7 @@ CW_Action_t CW_HandleState(void)
 
             s_pending_alternate = false;
             s_elem_start_count = cur_count;
+            s_elem_deadline_extra_ms = AUDIO_IsAudioPathOn() ? 0 : 20;
             s_KeyerFSMState = CWK_STATE_ACTIVE_ELEMENT;
 #if CW_KEYER_DEBUG
             UART_Send("keyer going active\r\n", 20);
@@ -663,7 +663,8 @@ CW_Action_t CW_HandleState(void)
             }
         }
 
-        if (elapsed_elem >= target) {
+        if (elapsed_elem >= target + s_elem_deadline_extra_ms) {
+            s_elem_deadline_extra_ms = 0;
             action = CW_ACTION_CARRIER_OFF;
             s_elem_start_count = cur_count;
             // Emit element to encoder on state exit

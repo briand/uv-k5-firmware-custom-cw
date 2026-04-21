@@ -80,6 +80,10 @@ static const MorseCode_t MORSE_TABLE[] = {
 	// Punctuation
 	{'/', 5, 0b01001},    // -..-.
 	{'?', 6, 0b001100},    // ..--..
+	{'.', 6, 0b010101},    // .-.-.-
+	{',', 6, 0b110011},    // --..--
+	{'=', 6, 0b10001},      // -...-
+	{'-', 6, 0b100001}     // -....-
 };
 
 #define MORSE_TABLE_SIZE (sizeof(MORSE_TABLE) / sizeof(MORSE_TABLE[0]))

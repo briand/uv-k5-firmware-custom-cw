@@ -141,6 +141,10 @@ static inline void AUDIO_AudioPathOff(void) {
 	GPIO_ClearBit(&GPIOC->DATA, GPIOC_PIN_AUDIO_PATH);
 }
 
+static inline bool AUDIO_IsAudioPathOn(void) {
+	return GPIO_CheckBit(&GPIOC->DATA, GPIOC_PIN_AUDIO_PATH) != 0;
+}
+
 #ifdef ENABLE_VOICE
 	extern VOICE_ID_t        gVoiceID[8];
 	extern uint8_t           gVoiceReadIndex;

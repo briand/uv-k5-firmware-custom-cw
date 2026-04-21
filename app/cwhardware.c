@@ -44,9 +44,11 @@
     #define CW_KEYER_RING_GPIO_BIT GPIOB_PIN_SWD_IO
 #endif
 
-// Local state for last sampled paddles (edge detection)
-static bool s_last_dit = false;
-static bool s_last_dah = false;
+// Local state for debounce counters and debounced edge tracking
+static bool     s_last_dit   = false;
+static bool     s_last_dah   = false;
+static uint32_t s_dit_count  = 0;  // consecutive raw-true reads for dit
+static uint32_t s_dah_count  = 0;  // consecutive raw-true reads for dah
 
 // Read button ring input (SIDE1)
 static void CW_ReadSideButton(bool *ring_out)
@@ -93,11 +95,11 @@ static bool CW_ReadGpioDeglitched(volatile uint32_t *gpio_data, uint8_t pin_bit,
     bool result = false;
     uint16_t reg = 0, reg2;
     unsigned int i, k;
-    uint32_t limit = heavy ? 500 : 100; // more samples for heavy de-noise
-    uint32_t goal = heavy ? 300 : 60;  // need this many stable samples
+    uint32_t limit = heavy ? 250 : 50; // more samples for heavy de-noise
+    uint32_t goal = heavy ? 150 : 30;  // need this many stable samples
 
     for (i = 0, k = 0, reg = 0; i < goal && k < limit; i++, k++) {
-        SYSTICK_DelayUs(1);
+        SYSTICK_DelayUs(5);
         reg2 = (*gpio_data) & (1U << pin_bit);
         i *= (reg == reg2);  // Reset i if readings differ
         reg = reg2;
@@ -135,29 +137,21 @@ static void CW_ReadPtt(bool *ptt_out)
 uint16_t CW_ReadCH3()
 {    
     ADC_Start();
-    while (!ADC_CheckEndOfConversion(ADC_CH3)) {}
+    while (!ADC_CheckEndOfConversion(ADC_CH9)){} // ADC_CH3)) {}
     return ADC_GetValue(ADC_CH3);
 }
 
 
 static void CW_ReadADCkeys(bool *tip_out, bool *ring_out)
 {
-    // Take baseline ADC sample with timing
-    // uint16_t start_tick = timer_jiffies();
-    
-    // being absolutely paranoid about performance, we enable only CH3 for this loop, then set back
-    uint32_t regval = SARADC_CFG;
-    SARADC_CFG = (regval & ~SARADC_CFG_CH_SEL_MASK) | (ADC_CH3 << SARADC_CFG_CH_SEL_SHIFT);
-
     uint16_t baseline = CW_ReadCH3();
 
     // Validate with up to 4 more samples - stop if any differs by >40 from baseline
     uint16_t val = baseline;
-    int samples_taken = 1;
     
     for (int i = 0; i < 12; i++) {
         uint16_t sample = CW_ReadCH3();
-        samples_taken++;
+        //samples_taken++;
         
         int16_t diff = (int16_t)sample - (int16_t)baseline;
         if (diff < 0) diff = -diff;
@@ -168,13 +162,6 @@ static void CW_ReadADCkeys(bool *tip_out, bool *ring_out)
             SYSTICK_DelayUs(5);  // Short delay before next sample
         }
     }
-    SARADC_CFG = regval;  // Restore original channel config so battery monitoring etc. still works
-    
-    // uint16_t elapsed = timer_jiffies_since(start_tick);
-    // Log timing and validation
-    // char log_buf[64];
-    // sprintf(log_buf, "ADC: %u jiffies, %d samples, baseline=%u->%u\r\n", elapsed, samples_taken, baseline, val);
-    // UART_LogSend(log_buf, strlen(log_buf));
 
     if (val < gEeprom.CW_ADC_CABLE_20K - CW_ADC_RANGE_LIMIT || val > CW_ADC_MAX) return;  // no paddle pressed or fault
     else if (val < gEeprom.CW_ADC_CABLE_20K + CW_ADC_RANGE_LIMIT) *ring_out = true;  // 20k ohm
@@ -246,14 +233,24 @@ void CW_ReadKeys(CW_Input *in)
         n_dah = false;
     }
 
-    // Compute edges
-    in->dit_rise = (!s_last_dit && n_dit);
-    in->dah_rise = (!s_last_dah && n_dah);
-    in->dit = n_dit;
-    in->dah = n_dah;
+    // Three-strike debounce: increment static counters while the raw line is
+    // active, reset to zero as soon as it goes inactive.
+    if (n_dit) s_dit_count++; else s_dit_count = 0;
+    if (n_dah) s_dah_count++; else s_dah_count = 0;
 
-    s_last_dit = n_dit;
-    s_last_dah = n_dah;
+    // Debounced state: line is considered active only after 3 consecutive hits.
+    bool deb_dit = (s_dit_count >= 3);
+    bool deb_dah = (s_dah_count >= 3);
+
+    // Edges are computed against the previous debounced state so callers only
+    // see a rising edge on the debounced false->true transition.
+    in->dit_rise = (!s_last_dit && deb_dit);
+    in->dah_rise = (!s_last_dah && deb_dah);
+    in->dit      = deb_dit;
+    in->dah      = deb_dah;
+
+    s_last_dit = deb_dit;
+    s_last_dah = deb_dah;
 }
 
 // Configure port ground pin (PA8) for tip/ring paddle input
@@ -361,6 +358,8 @@ void CW_ConfigureADCforCECPaddles(bool enable)
 // Reset sampled key states (used from keyer init)
 void CW_HW_ResetKeySamples(void)
 {
-    s_last_dit = false;
-    s_last_dah = false;
+    s_last_dit  = false;
+    s_last_dah  = false;
+    s_dit_count = 0;
+    s_dah_count = 0;
 }

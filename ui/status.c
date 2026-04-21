@@ -28,6 +28,7 @@
 #include "functions.h"
 #include "helper/battery.h"
 #include "misc.h"
+#include "radio.h"
 #include "settings.h"
 #include "ui/battery.h"
 #include "ui/helper.h"
@@ -120,13 +121,25 @@ void UI_DisplayStatus()
 	}
 	x += sizeof(BITMAP_TDR1) + 1;
 
+#if defined(ENABLE_VOX) || defined(ENABLE_CW_MODULATOR)
+	{
+		bool _vox_bkin_shown = false;
+		(void)_vox_bkin_shown;
 #ifdef ENABLE_VOX
-	// VOX indicator
-	if (gEeprom.VOX_SWITCH) {
-		memcpy(line + x, BITMAP_VOX, sizeof(BITMAP_VOX));
-		x1 = x + sizeof(BITMAP_VOX) + 1;
+		if (gEeprom.VOX_SWITCH) {
+			memcpy(line + x, BITMAP_VOX, sizeof(BITMAP_VOX));
+			x1 = x + sizeof(BITMAP_VOX) + 1;
+			_vox_bkin_shown = true;
+		}
+#endif
+#ifdef ENABLE_CW_MODULATOR
+		if (!_vox_bkin_shown && gCurrentVfo->Modulation == MODULATION_CW && gEeprom.CW_BREAKIN_ENABLE) {
+			memcpy(line + x, BITMAP_BKIN, sizeof(BITMAP_BKIN));
+			x1 = x + sizeof(BITMAP_BKIN) + 1;
+		}
+#endif
+		x += 19; // 18-byte VOX/BKIN glyph + 1 gap (both bitmaps are the same width)
 	}
-	x += sizeof(BITMAP_VOX) + 1;
 #endif
 
 	x = MAX(x1, 61u);

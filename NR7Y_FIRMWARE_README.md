@@ -24,7 +24,7 @@ To flash directly from your Chrome browser use https://egzumer.github.io/uvtools
 - Re-apply monitor-mode setting based on modulation when the VFO is reconfigured such going between VFO A/B or mem to VFO mode
 - Add a short pre-delay when beginning to send while the squelch is closed (audio path off), preventing the leading edge of the first dit from being cut off
 - Minor ADC read cleanup
-- Keep backlight on during all sending (change via menu #39 BltTRX)
+- Keep backlight on during all sending (change via menu 39 BltTRX)
 
 _Previous beta changelists moved to the bottom of this doc_
 

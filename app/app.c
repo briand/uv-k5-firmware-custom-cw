@@ -1953,6 +1953,8 @@ Skip:
 
 #ifdef ENABLE_CW_MODULATOR
 		CW_KeyerReconfigure(gTxVfo->Modulation==MODULATION_CW);
+		gMonitor = (gRxVfo->Modulation == MODULATION_CW ||
+		            gRxVfo->Modulation == MODULATION_USB);
 #endif
 
 #ifdef ENABLE_NOAA

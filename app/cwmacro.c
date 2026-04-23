@@ -80,9 +80,9 @@ static const MorseCode_t MORSE_TABLE[] = {
 	// Punctuation
 	{'/', 5, 0b01001},    // -..-.
 	{'?', 6, 0b001100},    // ..--..
-	{'.', 6, 0b010101},    // .-.-.-
+	{'.', 6, 0b101010},    // .-.-.-
 	{',', 6, 0b110011},    // --..--
-	{'=', 6, 0b10001},      // -...-
+	{'=', 5, 0b10001},      // -...-
 	{'-', 6, 0b100001}     // -....-
 };
 
@@ -119,12 +119,14 @@ static const uint16_t MACRO_ADDRS[CW_MACRO_COUNT] = {
 
 bool CW_ValidateChar(char ch)
 {
-	// Valid characters: A-Z, 0-9, '/', '?'
+	// Valid characters: A-Z, 0-9, ',', '-', '.', '/', '?', '='
 	if (ch >= 'A' && ch <= 'Z')
 		return true;
-	if (ch >= '/' && ch <= '9')  // '/' to '9' are contiguous in ASCII
+	if (ch >= ',' && ch <= '9')  // ',' to '9' are contiguous in ASCII
 		return true;
 	if (ch == '?')
+		return true;
+	if (ch == '=')
 		return true;
 	return false;
 }
@@ -401,6 +403,7 @@ void CW_EncoderProcessElement(CW_ElementType_t element)
 #if CW_ENCODER_DEBUG
 			{
 				char buf[64];
+				// Note: here '?' is used for unknown, not for a question mark
 				sprintf_(buf, "  Result: ch='%c' (%d) valid=%d\r\n", 
 					ch ? ch : '?', ch, ch != 0 && CW_ValidateChar(ch));
 				UART_Send(buf, strlen(buf));

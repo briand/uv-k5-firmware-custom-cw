@@ -852,7 +852,7 @@ class UVK5_NR7Y(uvk5_egzumer.UVK5RadioEgzumer):
                 # Validate character (A-Z, 0-9, /, ?)
                 if not ((char >= 'A' and char <= 'Z') or 
                         (char >= '0' and char <= '9') or 
-                        char in ['/', '?']):
+                        char in ['/', '?', ',', '.', '-', '=']):
                     LOG.warning(f"Skipping invalid char '{char}' in macro {idx}")
                     continue
                 

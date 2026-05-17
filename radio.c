@@ -350,6 +350,14 @@ void RADIO_ConfigureChannel(const unsigned int VFO, const unsigned int configure
 				// No reverse-frequency mode in CW
 				pVfo->FrequencyReverse = false;
 			}
+			else if (pVfo->Modulation == MODULATION_USB)
+			{
+				// No scrambler in SSB
+				pVfo->SCRAMBLING_TYPE = 0;
+
+				// No PTT ID in SSB
+				pVfo->DTMF_PTT_ID_TX_MODE = PTT_ID_OFF;
+			}
 		#endif
 
 		// ***************
@@ -1121,7 +1129,9 @@ void RADIO_SendCssTail(void)
 void RADIO_SendEndOfTransmission(void)
 {
 #ifdef ENABLE_CW_MODULATOR
-	if (gTxVfo->Modulation != MODULATION_CW) {
+	if (gTxVfo->Modulation != MODULATION_CW && gTxVfo->Modulation != MODULATION_USB) {
+#else
+	if (gTxVfo->Modulation != MODULATION_USB) {
 #endif
 	BK4819_PlayRoger();
 	DTMF_SendEndOfTransmission();
@@ -1129,9 +1139,7 @@ void RADIO_SendEndOfTransmission(void)
 	// send the CTCSS/DCS tail tone - allows the receivers to mute the usual FM squelch tail/crash
 	if(gEeprom.TAIL_TONE_ELIMINATION)
 		RADIO_SendCssTail();
-#ifdef ENABLE_CW_MODULATOR
 	}
-#endif
 	RADIO_SetupRegisters(false);
 }
 

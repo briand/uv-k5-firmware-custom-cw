@@ -38,6 +38,7 @@ typedef struct {
 	uint8_t pattern;  // Bit pattern: 0=dit, 1=dah, LSB first
 } MorseCode_t;
 
+// bits in the lookup table are element-order-BACKWARDS, pop the stack.
 static const MorseCode_t MORSE_TABLE[] = {
 	// Letters A-Z (LSB first: bit 0 = first element, 0=dit, 1=dah)
 	{'A', 2, 0b10},      // .-
@@ -82,8 +83,11 @@ static const MorseCode_t MORSE_TABLE[] = {
 	{'?', 6, 0b001100},    // ..--..
 	{'.', 6, 0b101010},    // .-.-.-
 	{',', 6, 0b110011},    // --..--
-	{'=', 5, 0b10001},      // -...-
-	{'-', 6, 0b100001}     // -....-
+	{'=', 5, 0b10001},    // -...-   BT prosign
+	{'-', 6, 0b100001},   // -....-
+	{'+', 5, 0b01010},   // .-.-. AR prosign
+	{'(', 5, 0b01101},   // -.--.  KN prosign
+	{'&', 5, 0b00010}    // .-...  AS prosign
 };
 
 #define MORSE_TABLE_SIZE (sizeof(MORSE_TABLE) / sizeof(MORSE_TABLE[0]))

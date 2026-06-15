@@ -141,8 +141,7 @@ uint16_t CW_ReadCH3()
     return ADC_GetValue(ADC_CH3);
 }
 
-
-static void CW_ReadADCkeys(bool *tip_out, bool *ring_out)
+void CW_ReadADCkeys(bool *tip_out, bool *ring_out)
 {
     uint16_t baseline = CW_ReadCH3();
 

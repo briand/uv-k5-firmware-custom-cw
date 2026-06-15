@@ -123,15 +123,14 @@ static const uint16_t MACRO_ADDRS[CW_MACRO_COUNT] = {
 
 bool CW_ValidateChar(char ch)
 {
-	// Valid characters: A-Z, 0-9, ',', '-', '.', '/', '?', '='
-	if (ch >= 'A' && ch <= 'Z')
-		return true;
-	if (ch >= ',' && ch <= '9')  // ',' to '9' are contiguous in ASCII
-		return true;
-	if (ch == '?')
-		return true;
-	if (ch == '=')
-		return true;
+	// A-Z
+	if (ch >= 'A' && ch <= 'Z') return true;
+	// '+' (43) through '9' (57): +,-./ and 0-9, all contiguous and all valid
+	if (ch >= '+' && ch <= '9') return true;
+	if (ch == '&') return true;
+	if (ch == '(') return true;
+	if (ch == '=') return true;
+	if (ch == '?') return true;
 	return false;
 }
 

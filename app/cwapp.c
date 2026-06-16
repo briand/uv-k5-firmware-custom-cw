@@ -80,9 +80,6 @@ void CW_EndTxNow(void)
 // ---------------------------------------------------------------------------
 void CW_AppUpdate(void)
 {
-	if (gF_LOCK)  // don't init or run the keyer in "hidden menu" tech mode
-		return;
-
 	if (gCW_AdcReadActive)  // CW_CRD mode: PTT pin is an output; no keyer FSM activity
 		return;
 
@@ -109,7 +106,7 @@ void CW_AppUpdate(void)
 
 	// ---- local-only sidetone path (no RF) ----
 	// Used when recording a macro, reading ADC, breakin disabled, or code practice
-	if (gCW_Recording || gCW_AdcReadActive || !gEeprom.CW_BREAKIN_ENABLE
+	if ( !gEeprom.CW_BREAKIN_ENABLE || gCW_Recording || gCW_AdcReadActive
 #ifdef ENABLE_CODE_PRACTICE
 		|| gCW_CpoActive
 #endif
@@ -117,11 +114,16 @@ void CW_AppUpdate(void)
 		switch (action)
 		{
 			case CW_ACTION_CARRIER_ON:
-			if (gCW_State == CW_INACTIVE && !AUDIO_IsAudioPathOn()) {
+			if (gCW_State == CW_INACTIVE && !AUDIO_IsAudioPathOn()) 
+			{
 				AUDIO_AudioPathOn();
 				SYSTEM_DelayMs(10);
 			}
-			BACKLIGHT_TurnOn();
+			if ((gCW_CpoActive && gCW_CpoBacklightOn) 
+			|| (!gCW_CpoActive && (gSetting_backlight_on_tx_rx & BACKLIGHT_ON_TR_TX)))	 
+			{
+					BACKLIGHT_TurnOn();
+			}
 			BK4819_SetAF(BK4819_AF_ALAM);
 			BK4819_WriteRegister(BK4819_REG_70,
 				BK4819_REG_70_ENABLE_TONE1 |
@@ -163,7 +165,8 @@ void CW_AppUpdate(void)
 			gTxTimerCountdown_500ms = 0;
 			gCW_TxDisplayHoldoff_10ms = 200;
 			gPttIsPressed = true;
-			BACKLIGHT_TurnOn();
+			if(gSetting_backlight_on_tx_rx & BACKLIGHT_ON_TR_TX)
+				BACKLIGHT_TurnOn();
 
 			if (gCW_State == CW_INACTIVE)
 			{

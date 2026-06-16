@@ -416,16 +416,18 @@ bool CW_CheckKeyerInputs(uint8_t new_mode)
 {    
     // hard deconfig, get all pins in a known state
     CW_KeyerDeinit();
-    
-    // Handkey mode without port ground doesn't need further validation
-    if (new_mode & CW_KEY_FLAG_NO_KEYER && !(new_mode & CW_KEY_FLAG_PORT_GROUND)) {
-        return true;
-    }
-    
+
     // Determine if we need to configure port pins for this mode (use bit flags)
     bool uses_port_ground = (new_mode & CW_KEY_FLAG_PORT_GROUND);
     bool uses_port_ring = (new_mode & CW_KEY_FLAG_PORT_RING);
     bool uses_adc = (new_mode & CW_KEY_FLAG_ADC);
+
+    // Handkey mode without port ground doesn't need further validation
+    if (new_mode & CW_KEY_FLAG_NO_KEYER 
+        && !uses_port_ground
+        && !uses_adc) {
+        return true;
+    }
 
     // Button-only modes don't need validation (no port pins to check)
     if (!uses_port_ground && !uses_port_ring && !uses_adc) {
@@ -442,13 +444,13 @@ bool CW_CheckKeyerInputs(uint8_t new_mode)
 #if CW_KEYER_DEBUG
         UART_Send("Configuring port ground for CW keyer check\r\n", 44);
 #endif
-        CW_ConfigurePortGround(uses_port_ground);
+        CW_ConfigurePortGround(true);
     }
     if( uses_port_ring) {
 #if CW_KEYER_DEBUG
         UART_Send("Configuring port ring for CW keyer check\r\n", 42);
 #endif
-        CW_ConfigurePortRing(uses_port_ring);
+        CW_ConfigurePortRing(true);
         
     } else if(uses_adc) {
 #if CW_KEYER_DEBUG
@@ -523,9 +525,15 @@ bool CW_CheckKeyerInputs(uint8_t new_mode)
 CW_Action_t ptt_action(void)
 {
     CW_Action_t action = CW_ACTION_NONE;
+    bool ptt = false;
 
-    // Read PTT button (PC5) - active low
-    bool ptt = !(GPIOC->DATA & (1U << GPIOC_PIN_PTT));
+    if(gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_ADC) {
+        // handkey CEC mode, either key works
+        CW_ReadADCkeys(&ptt, &ptt);
+    } else
+    {    // Read PTT button (PC5) - active low
+        ptt = !(GPIOC->DATA & (1U << GPIOC_PIN_PTT));
+    }
 
     if (ptt && !s_last_handkey_ptt) {
         // PTT pressed

@@ -1187,8 +1187,8 @@ void BK4819_PrepareTransmit(void)
 {
 #ifdef ENABLE_CW_MODULATOR
 	if(gTxVfo->Modulation != MODULATION_CW) 
-	BK4819_ExitBypass();
 #endif
+		BK4819_ExitBypass();
 	BK4819_ExitTxMute();
 	BK4819_TxOn_Beep();
 }

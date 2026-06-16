@@ -38,16 +38,17 @@ CW_SETTINGS_ADDR = 0x0F20  # 3 bytes: freq/vol, mode/wpm, key_input
 
 # Key input mode display strings (menu index stored directly, bitmap not stored)
 CW_KEY_INPUT_MODES = [
-    "PTT HandKey",                    # 0: 0x08
-    "PTT+Tip HandKey",               # 1: 0x18
-    "PTT dah, Side1 dit",             # 2: 0x04
-    "PTT dit, Side1 dah",             # 3: 0x05
-    "PTT+Tip dah, Ring dit",          # 4: 0x12
-    "PTT+Tip dit, Ring dah",          # 5: 0x13
-    "Both dah, Both dit",             # 6: 0x16
-    "Both dit, Both dah",             # 7: 0x17
-    "CEC (PTT dah, Tip dit)",         # 8: 0x20 - NEW beta3
-    "CEC (PTT dit, Tip dah)"          # 9: 0x21 - NEW beta3
+    "PTT HandKey",          # 0: 0x08
+    "Port HandKey",         # 1: 0x18
+    "Side Btn Iambic",          # 2: 0x04
+    "Side Btn Iambic Reversed",          # 3: 0x05
+    "Port Iambic",          # 4: 0x12
+    "Port Iambic Reversed",          # 5: 0x13
+    "Port+Btn Iambic",          # 6: 0x16
+    "Port+Btn Iambic Reversed",          # 7: 0x17
+    "CEC Cable",          # 8: 0x20
+    "CEC Cable Reversed",          # 9: 0x21
+    "CEC Cable Handkey",         # 10: 0x28
 ]
 # Complete programmable key actions list from firmware (settings.h:105-127)
 # Beta3 extends with repeat actions - synced with firmware beta3
@@ -852,7 +853,7 @@ class UVK5_NR7Y(uvk5_egzumer.UVK5RadioEgzumer):
                 # Validate character (A-Z, 0-9, /, ?)
                 if not ((char >= 'A' and char <= 'Z') or 
                         (char >= '0' and char <= '9') or 
-                        char in ['/', '?', ',', '.', '-', '=']):
+                        char in ['/', '?', ',', '.', '-', '=', '+', '(']):
                     LOG.warning(f"Skipping invalid char '{char}' in macro {idx}")
                     continue
                 

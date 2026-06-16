@@ -179,14 +179,18 @@ static void processFKeyFunction(const KEY_Code_t Key, const bool beep)
 			break;
 
 		case KEY_4:
-			gWasFKeyPressed          = false;
-
+			gWasFKeyPressed = false;
+			gUpdateStatus   = true;
+			#ifdef ENABLE_CW_MODULATOR
+			if (gTxVfo->Modulation == MODULATION_CW) {
+				ACTION_SwitchFilter();
+				break;
+			}
+			#endif
 			gBackup_CROSS_BAND_RX_TX  = gEeprom.CROSS_BAND_RX_TX;
 			gEeprom.CROSS_BAND_RX_TX = CROSS_BAND_OFF;
-			gUpdateStatus            = true;		
 			if (beep)
 				gBeepToPlay = BEEP_1KHZ_60MS_OPTIONAL;
-
 			SCANNER_Start(false);
 			gRequestDisplayScreen = DISPLAY_SCANNER;
 			break;
@@ -227,11 +231,7 @@ static void processFKeyFunction(const KEY_Code_t Key, const bool beep)
 			break;
 
 		case KEY_7:
-#ifdef ENABLE_VOX
-			ACTION_Vox();
-#else
-			toggle_chan_scanlist();
-#endif
+			ACTION_VoxOrCwBreakIn();
 			break;
 
 		case KEY_8:
@@ -281,14 +281,12 @@ static void MAIN_Key_DIGITS(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 					gRequestDisplayScreen = DISPLAY_MAIN;
 				}
 
-				#ifndef ENABLE_VOX
 				if (Key == KEY_7) {
 					gWasFKeyPressed = false;
 					gUpdateStatus   = true;
-					ACTION_SwitchFilter();
+					ACTION_VoxOrCwBreakIn();
 					return;
 				}
-				#endif
 
 				#ifdef ENABLE_CW_MODULATOR
 				if (Key == KEY_8 && gTxVfo->Modulation == MODULATION_CW) {

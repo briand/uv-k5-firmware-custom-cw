@@ -14,9 +14,7 @@ This repository builds on the egzumer codebase by adding a set of features speci
 > [!WARNING]
 > This firmware mod, perhaps more than some, changes the radio hardware behavior in significant ways. While every attempt is made to do this in a way that allows the hardware to operate properly and within spec for Amateur Radio service, no guarantee or warranty is given to any effect of proper performance nor against damage to the radio hardware itself. Use at your own risk.
 
-This project is currently **beta**; some features are still missing, some bugs exist. Some probably always will.
-
-This firmware only supports the V1 Quansheng hardware, as per the original egzumer project. Once a 1.0 release is made, will follow to apply this mod onto the excellent work by [F4HWN](https://github.com/armel/uv-k1-k5v3-firmware-custom) to provide updated support for the V3 hardware.
+This firmware only supports the Quansheng UVK5 **V1** radio, as per the original egzumer project. If your radio is a UVK5v3 or a UVK1, visit the CW firmware [here](https://github.com/briand/uv-k1-k5v3-firmware-custom) for compatible functionality.
 
 To make room for the CW features, some of the egzumer mods and radio functions have been disabled:
 

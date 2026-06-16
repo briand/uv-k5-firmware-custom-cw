@@ -36,7 +36,7 @@
 #ifdef ENABLE_CODE_PRACTICE
 
 bool gCW_CpoActive = false;
-bool gCW_CpoBacklightOn = false;
+bool gCW_CpoBacklightOn = true;
 static bool s_needs_redraw = false;
 bool wpm_changed = false;
 static bool s_flashlight_sending = false;
@@ -44,6 +44,7 @@ static bool s_flashlight_sending = false;
 void CPO_Enter(void)
 {
     CW_KeyerReconfigure(true);
+	gCW_CpoBacklightOn = (gSetting_backlight_on_tx_rx & BACKLIGHT_ON_TR_TX) != 0;
 	gCW_CpoActive = true;
 	s_needs_redraw = true;
 	gRequestDisplayScreen = DISPLAY_CPO;
@@ -80,10 +81,6 @@ void CPO_Tick(void)
 {
 	if (!gCW_CpoActive) {
 		return;
-	}
-
-	if (gCW_CpoBacklightOn) {
-		gBacklightCountdown_500ms = 2;
 	}
 
 	if (s_needs_redraw | gCW_TX_DisplayUpdated) {
@@ -127,7 +124,6 @@ void CPO_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 		gCW_CpoBacklightOn = !gCW_CpoBacklightOn;
 		if (gCW_CpoBacklightOn) {
 			BACKLIGHT_TurnOn();
-			gBacklightCountdown_500ms = 2;
             gUpdateDisplay = true;
 		} else {
 			BACKLIGHT_TurnOff();

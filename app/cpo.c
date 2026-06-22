@@ -102,7 +102,7 @@ void CPO_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 	switch (Key) {
 
 	case KEY_UP:
-		if (gEeprom.CW_KEY_WPM < 30) {
+		if (gEeprom.CW_KEY_WPM < 45) {
 			gEeprom.CW_KEY_WPM++;
 #ifdef ENABLE_CW_MODULATOR
 			CW_UpdateWPM();

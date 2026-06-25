@@ -25,6 +25,7 @@ void ACTION_Scan(bool bRestart);
 #ifdef ENABLE_VOX
 	void ACTION_Vox(void);
 #endif
+void ACTION_VoxOrCwBreakIn(void);
 
 #ifdef ENABLE_FMRADIO
 	void ACTION_FM(void);

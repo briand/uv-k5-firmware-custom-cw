@@ -141,8 +141,7 @@ uint16_t CW_ReadCH3()
     return ADC_GetValue(ADC_CH3);
 }
 
-
-static void CW_ReadADCkeys(bool *tip_out, bool *ring_out)
+void CW_ReadADCkeys(bool *tip_out, bool *ring_out)
 {
     uint16_t baseline = CW_ReadCH3();
 
@@ -188,22 +187,22 @@ bool CW_ReadKeysForMode(uint8_t mode, bool *dit_out, bool *dah_out)
         bool reverse = (mode & CW_KEY_FLAG_REVERSED);
 
         // Map tip/ring to dit/dah based on reversed flag
-        *dit_out = reverse ? adc_tip : adc_ring;
-        *dah_out = reverse ? adc_ring : adc_tip;
+        *dit_out = reverse ? adc_ring : adc_tip;
+        *dah_out = reverse ? adc_tip : adc_ring;
 
         return true;
     } 
 
-    // Read PTT (PC5) as tip - shared across button and port configs
+    // Read PTT (PC5) as tip - this is how the rework wires it
+    bool hw_ring = false;
     bool hw_tip = false;
     CW_ReadPtt(&hw_tip);
-    bool hw_ring = false;
 
     // Read button ring input if enabled
     if (mode & CW_KEY_FLAG_SIDE1) {
         CW_ReadSideButton(&hw_ring);
     }
-
+    
     // Read port ring input if enabled and OR with button ring
     if (mode & CW_KEY_FLAG_PORT_RING) {
         bool port_ring = CW_ReadGpioDeglitched(&GPIOB->DATA, CW_KEYER_RING_GPIO_BIT, true);
@@ -214,8 +213,8 @@ bool CW_ReadKeysForMode(uint8_t mode, bool *dit_out, bool *dah_out)
     bool reverse = (mode & CW_KEY_FLAG_REVERSED);
 
     // Map tip/ring to dit/dah based on reversed flag
-    *dit_out = reverse ? hw_tip : hw_ring;
-    *dah_out = reverse ? hw_ring : hw_tip;
+    *dit_out = reverse ? hw_ring : hw_tip;
+    *dah_out = reverse ? hw_tip : hw_ring;
 
     return true;
 }

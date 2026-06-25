@@ -397,7 +397,7 @@ int MENU_GetLimits(uint8_t menu_id, int32_t *pMin, int32_t *pMax)
 
 		case MENU_CW_KEY_INPUT:
 			*pMin = 0;
-			*pMax = 9;
+			*pMax = 10;
 			break;
 
 		case MENU_CW_MSG1:
@@ -914,7 +914,7 @@ void MENU_AcceptSetting(void)
 			return;
 
 		case MENU_CW_KEY_INPUT:
-			// Map menu selection (0-7) to bit-mapped value
+			// Map menu selection (0-10) to bit-mapped value
 			{
 				uint8_t new_mode = CW_KEY_INPUT_menu_to_bitmap[gSubMenuSelection];
 				// Validate key inputs before accepting

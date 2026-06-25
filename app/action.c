@@ -543,6 +543,21 @@ void ACTION_Vox(void)
 }
 #endif
 
+void ACTION_VoxOrCwBreakIn(void)
+{
+#ifdef ENABLE_CW_MODULATOR
+	if (gTxVfo->Modulation == MODULATION_CW) {
+		gEeprom.CW_BREAKIN_ENABLE = !gEeprom.CW_BREAKIN_ENABLE;
+		gRequestSaveSettings      = true;
+		gUpdateStatus             = true;
+		return;
+	}
+#endif
+#ifdef ENABLE_VOX
+	ACTION_Vox();
+#endif
+}
+
 #ifdef ENABLE_BLMIN_TMP_OFF
 void ACTION_BlminTmpOff(void)
 {

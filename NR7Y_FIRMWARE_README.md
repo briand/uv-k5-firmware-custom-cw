@@ -1,6 +1,7 @@
 NR7Y CW firmware README
 
-# v1.0
+# v1.1
+
 > [!IMPORTANT]
 > This firmware only works on "V1" hardware. How do you know? Well, you kinda don't. If you bought your radio early last year, it's V1. If you bought it late last year, it could be V2. If you bought it in 2026, it could be V3! Most (all?) V3 radios are marked as such on the label under the battery. Some vendors specifically promote that their listing a V3, but not all.
 > 
@@ -16,15 +17,14 @@ To flash directly from your Chrome browser use https://egzumer.github.io/uvtools
  2. Release buttons, menu will be automatically presented.
  3. Go up to Reset and pick ALL. 
 
-## Changelist from beta6 -> beta7 (1.0)
-- Status bar shows **BKIN** indicator when CW break-in is enabled
-- Add several punctuation characters to the on-screen CW decoder and macro system (`.`, `,`, `=`, `-`)
-- 3ms debounce added to CW key inputs to reduce spurious elements from contact noise and RFI
-- Fixed a bug where ADC-read (CEC cable test) mode would trigger RF transmission (#23)
-- Re-apply monitor-mode setting based on modulation when the VFO is reconfigured such going between VFO A/B or mem to VFO mode
-- Add a short pre-delay when beginning to send while the squelch is closed (audio path off), preventing the leading edge of the first dit from being cut off
-- Minor ADC read cleanup
-- Keep backlight on during all sending (change via menu 39 BltTRX)
+## Changelist from 1.0 -> 1.1
+- Add decoder/macro prosign characters: AR (`+`), KN (`(`), and AS (`&`)
+- New CEC cable handkey mode - Connect a CEC cable to a straight key (or paddle, either key), resolves #30
+- Allow PTT handkey in hidden tech mode, for testing calibration offset
+- **4** now cycles the filter while in CW mode ("FC" for Filter Cycle, eh? **4** still launches the scanner for other modulations)
+- While in CW mode, **7** (the VOX button) toggles CW break-in (used to cycle filter)
+- Fixed reversed tip/ring element polarity on the paddle input
+- CPO backlight now follows the BltTRX menu setting on entry, and properly honors the configured backlight timeout instead of staying on indefinitely
 
 _Previous beta changelists moved to the bottom of this doc_
 
@@ -84,9 +84,9 @@ Sets the sending speed for the automatic iambic keyer in Words Per Minute.
 
 Configures how the CW input signals are connected and interpreted. This is the most complex setting as it determines which physical inputs are used and how they're mapped.
 
-**Note:** The port modes (PTT+port, tip/ring settings) require an iambic key rework inside the radio. If you have already done the original straight key mod and wish to keep it, this will continue to work with the "PTT HandKey" mode or PTT/Side1 modes.
+**Note:** The Port modes require an iambic key rework inside the radio. If you have already done the original straight key mod and wish to keep it, this will continue to work with the "PTT HandKey" mode or Button modes.
 
-**Note:** When the radio is in a port/tip/ring or CEC mode, serial communication **will not work**, including programming with CHIRP. To use the serial port, switch modulation mode away from CW, or switch to a VFO where CW is not the current mode. This does not affect firmware flash programming.
+**Note:** When the radio is in a Port or CEC mode, serial communication **will not work**, including programming with CHIRP. To use the serial port, switch modulation mode away from CW, or switch to a VFO where CW is not the current mode. This does not affect firmware flash programming.
 
 **CEC cable input** is now available here. Because of the internal way this is accomplished, the PTT button cannot be used while in this mode. To make your own CEC cable, see [https://www.m5duk.com/2025/05/20/use-a-standard-cw-paddle-on-a-quansheng-uv-k5-uv-k6/](M5DUK's Helpful Article) among others. In short, wire a cable where the paddle tip goes through a 10k resistor to radio tip, and paddle ring goes through a 20k resistor **also** to radio tip, and wire sleeve-to-sleeve.
 
@@ -139,35 +139,45 @@ Set the ADC thresholds for your CEC cable. After capturing values with the Read 
 **1. PTT HandKey** (Default)
 - Use PTT button as a straight key
 
-**2. PTT+port HandKey**
+**2. Port HandKey**
 - PTT button as CW key (straight key mode)
-- Also accepts a straight key in the 3.5mm port (with iambic rework)
+- Also accepts a straight key in the 3.5mm port, sleeve + tip (with iambic rework)
 
 **Note:** _Each of the options below has a primary (dah/dit) and reversed (dit/dah) version - set how you prefer_
 
-**PTT dah SD1 dit / PTT dit SD1 dah** (Buttons)
-- PTT sends dah or dit
-- Side button 1 (SD1) = sends dit or dah
-- Automatic iambic keyer enabled (for this and all the below options)
+**3. Side Btn Iambic / 4. Side Btn Iambic Reversed** (Buttons)
+- PTT sends dit or dah
+- Side button 1 (SD1) = sends dah or dit
+- Automatic iambic keyer enabled (for this and all the below paddle options)
 
-**PTT+tip dah/dah, ring dit/dah** (Reworked Port)
-- 3.5mm port TIP or PTT button sends one element
-- 3.5mm port RING pin sends other element
+**5. Port Iambic / 6. Port Iambic Reversed** (Reworked Port)
+- 3.5mm port TIP sends one element
+- 3.5mm port RING sends other element
 - Requires the internal rework
-- Leaves SD1 button free for other use
+- Leaves PTT and SD1 free for other use
 
-**PTT+tip dah/dit, SD1+ring dit/dit** (Reworked port and Buttons)
-- PTT OR Tip = DAH/dit
-- Side button 1 (SD1) OR Ring = DIT/dah
+**7. Port+Btn Iambic / 8. Port+Btn Iambic Reversed** (Reworked port and Buttons)
+- PTT OR Tip = one element
+- Side button 1 (SD1) OR Ring = other element
 - Both radio buttons AND external port paddles work simultaneously
 
-**9. CEC Cable**
-- ADC-based input using a CEC cable. The PTT button is ignored in this mode.
+**9. CEC Cable / 10. CEC Cable Reversed**
+- ADC-based iambic input using a CEC cable. The PTT button is ignored in this mode.
 
-**10. CEC Cable Reversed**
-- Same as above with paddle orientation reversed.
+**11. CEC Cable Handkey**
+- ADC-based straight key input using a CEC cable - either paddle works as the key. The PTT button is ignored in this mode.
 
 # Prior Beta Changelists
+
+## Changelist from beta6 -> beta7 (1.0)
+- Status bar shows **BKIN** indicator when CW break-in is enabled
+- Add several punctuation characters to the on-screen CW decoder and macro system (`.`, `,`, `=`, `-`)
+- 3ms debounce added to CW key inputs to reduce spurious elements from contact noise and RFI
+- Fixed a bug where ADC-read (CEC cable test) mode would trigger RF transmission (#23)
+- Re-apply monitor-mode setting based on modulation when the VFO is reconfigured such going between VFO A/B or mem to VFO mode
+- Add a short pre-delay when beginning to send while the squelch is closed (audio path off), preventing the leading edge of the first dit from being cut off
+- Minor ADC read cleanup
+- Keep backlight on during all sending (change via menu 39 BltTRX)
 
 ## Changelist from beta5 -> beta6
 - Monitor mode is available in CW/SSB - these modes default to monitor on / squelch open. If a button is mapped to MONITOR, it can be used to close the squelch. This works inverse to FM mode. If modulation is changed away and back to CW/SSB, squelch will be back open again (not saved).

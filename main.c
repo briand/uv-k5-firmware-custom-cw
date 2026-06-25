@@ -173,8 +173,17 @@ void Main(void)
 	}
 
 #ifdef ENABLE_CW_MODULATOR
+    if(gF_LOCK)  
+    {
+		// PTT handkey mode at startup if in hidden menu tech mode
+    	gEeprom.CW_KEY_INPUT = CW_KEY_INPUT_HANDKEY;
+		gEeprom.CW_KEY_INPUT_MENU = 0;
+		gRequestSaveSettings = true;
+		CW_KeyerReconfigure(true);  // Force keyer to reinitialize with handkey mode
+    }			
 	// Check CW keyer inputs at startup - if stuck, fall back to handkey mode
-	if (!gF_LOCK && !CW_CheckKeyerInputs(gEeprom.CW_KEY_INPUT)) {
+	else if (!CW_CheckKeyerInputs(gEeprom.CW_KEY_INPUT)) 
+	{	
 		gEeprom.CW_KEY_INPUT = CW_KEY_INPUT_HANDKEY;
 		gEeprom.CW_KEY_INPUT_MENU = 0;
 		gRequestSaveSettings = true;

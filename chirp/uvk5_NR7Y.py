@@ -553,34 +553,41 @@ class UVK5_NR7Y(uvk5_egzumer.UVK5RadioEgzumer):
         
 
     def set_settings(self, settings):
-        """Apply settings to radio - follows base class pattern with CW support"""
+        """Apply settings to the radio.
+
+        NR7Y-specific settings (the extended programmable-key actions and the
+        CW group) are applied here; everything else is delegated to the egzumer
+        base class so the entire settings tree is written, not just a hardcoded
+        subset. This also drops the previous off-by-one on call_channel and
+        vox_level, because the base class now owns those (issue #36).
+        """
+        leftover = []
+        self._apply_nr7y_settings(settings, leftover)
+        if leftover:
+            # The egzumer base set_settings iterates whatever it is given, so a
+            # flat list of the remaining RadioSetting leaves is fine.
+            super().set_settings(leftover)
+
+    def _apply_nr7y_settings(self, settings, leftover):
+        """Walk the settings tree: apply NR7Y-specific items in place and
+        collect every other RadioSetting into ``leftover`` for the base class."""
         _mem = self._memobj
         for element in settings:
             if not isinstance(element, RadioSetting):
                 # It's a group, recurse into it
-                self.set_settings(element)
+                self._apply_nr7y_settings(element, leftover)
                 continue
             
             # It's an individual setting
             setting = element
             name = setting.get_name()
             
-            # Handle programmable key actions with extended list
-            if name == "key1_shortpress_action":
-                _mem.key1_shortpress_action = KEYACTIONS_LIST.index(str(setting.value))
-                LOG.debug(f"Set key1_shortpress_action to {setting.value}")
-                continue
-            elif name == "key1_longpress_action":
-                _mem.key1_longpress_action = KEYACTIONS_LIST.index(str(setting.value))
-                LOG.debug(f"Set key1_longpress_action to {setting.value}")
-                continue
-            elif name == "key2_shortpress_action":
-                _mem.key2_shortpress_action = KEYACTIONS_LIST.index(str(setting.value))
-                LOG.debug(f"Set key2_shortpress_action to {setting.value}")
-                continue
-            elif name == "key2_longpress_action":
-                _mem.key2_longpress_action = KEYACTIONS_LIST.index(str(setting.value))
-                LOG.debug(f"Set key2_longpress_action to {setting.value}")
+            # Programmable key actions use the extended KEYACTIONS_LIST. The
+            # EEPROM field name matches the setting name in every case.
+            if name in ("key1_shortpress_action", "key1_longpress_action",
+                        "key2_shortpress_action", "key2_longpress_action"):
+                setattr(_mem, name, KEYACTIONS_LIST.index(str(setting.value)))
+                LOG.debug(f"Set {name} to {setting.value}")
                 continue
             
             # Handle CW settings
@@ -608,44 +615,23 @@ class UVK5_NR7Y(uvk5_egzumer.UVK5RadioEgzumer):
                         self._set_cw_key_input_idx(idx)
                         LOG.debug(f"Set key input to {setting.value}")
                     elif name in ("cw.break_in", "cw.oper_mode"):
-                        # Match firmware menu behavior: OFF=0, ON=1
-                        idx = ["OFF", "ON"].index(str(setting.value)) if name == "cw.break_in" else ["OFF (Normal CW)", "ON (CPO Mode)"].index(str(setting.value))
-                        self._set_cw_breakin(1 if idx > 0 else 0)
+                        # Both option lists pair an "OFF..." with an "ON..."; store 1 unless OFF.
+                        self._set_cw_breakin(0 if str(setting.value).startswith("OFF") else 1)
                         LOG.debug(f"Set break-in to {setting.value}")
                     elif name == "cw.repeat_delay":
                         self._set_cw_repeat_delay(int(setting.value))
                         LOG.debug(f"Set CW repeat delay to {setting.value}")
                     elif name.startswith("cw.msg"):
-                        # Extract macro number from "cw.msg1" → "1"
-                        # "cw.msg" is 6 chars, so number is at index 6
-                        macro_num = name[6:]  # Skip "cw.msg" to get "1", "2", "3", "4"
-                        idx = int(macro_num)
+                        idx = int(name[len("cw.msg"):])
                         self._set_cw_msg(idx, str(setting.value))
                         LOG.info(f"Saved macro {idx}: '{str(setting.value)[:20]}...'")
                 except Exception as e:
-                    LOG.error(f"Error applying CW setting {name}: {e}")
-                    import traceback
-                    traceback.print_exc()
+                    LOG.exception(f"Error applying CW setting {name}: {e}")
                 continue
             
-            # Non-CW settings - let base class handle them
-            # Call parent's set_settings logic directly for this one setting
-            if name == "call_channel":
-                _mem.call_channel = int(setting.value)-1
-            elif name == "squelch":
-                _mem.squelch = int(setting.value)
-            elif name == "tot":
-                _mem.max_talk_time = int(setting.value)
-            elif name == "noaa_autoscan":
-                _mem.noaa_autoscan = setting.value and 1 or 0
-            elif name == "vox_switch":
-                _mem.vox_switch = setting.value and 1 or 0
-            elif name == "vox_level":
-                _mem.vox_level = int(setting.value)-1
-            elif name == "mic_gain":
-                _mem.mic_gain = int(setting.value)
-            # ... base class handles all other settings through its implementation
-            # We'll just let anything else pass through by calling parent on groups
+            # Anything else: defer to the egzumer base class so it is actually
+            # written to the radio (previously these were silently dropped).
+            leftover.append(setting)
 
     # ======== CW Settings Encode/Decode ========
     

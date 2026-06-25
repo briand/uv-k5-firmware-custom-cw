@@ -96,6 +96,7 @@ static const MorseCode_t MORSE_TABLE[] = {
 static uint8_t s_encoder_pattern = 0;  // Accumulated pattern
 static uint8_t s_encoder_length = 0;   // Number of elements in pattern
 static bool s_encoder_space_pending = false;  // Word space before next char
+static bool s_encoder_overflow = false;  // More than 6 elements sent (invalid char)
 
 // Recording state
 bool gCW_Recording = false;
@@ -381,14 +382,18 @@ void CW_EncoderProcessElement(CW_ElementType_t element)
 		if (s_encoder_length < 6) {
 			// Pattern LSB first, so no shift needed for new bit
 			s_encoder_length++;
+		} else {
+			s_encoder_overflow = true;
 		}
 		break;
-		
+
 	case CW_ELEMENT_DAH:
 		// Add a dah (1) to the pattern
 		if (s_encoder_length < 6) {
 			s_encoder_pattern |= (1 << s_encoder_length);
 			s_encoder_length++;
+		} else {
+			s_encoder_overflow = true;
 		}
 		break;
 		
@@ -402,7 +407,7 @@ void CW_EncoderProcessElement(CW_ElementType_t element)
 		}
 #endif
 		if (s_encoder_length > 0) {
-			char ch = CW_DecodePattern(s_encoder_pattern, s_encoder_length);
+			char ch = s_encoder_overflow ? 0 : CW_DecodePattern(s_encoder_pattern, s_encoder_length);
 #if CW_ENCODER_DEBUG
 			{
 				char buf[64];
@@ -440,6 +445,7 @@ void CW_EncoderProcessElement(CW_ElementType_t element)
 			s_encoder_pattern = 0;
 			s_encoder_length = 0;
 			s_encoder_space_pending = false;
+			s_encoder_overflow = false;
 		}
 		break;
 		
@@ -449,6 +455,7 @@ void CW_EncoderProcessElement(CW_ElementType_t element)
 		s_encoder_pattern = 0;
 		s_encoder_length = 0;
 		s_encoder_space_pending = true;
+		s_encoder_overflow = false;
 		break;
 	}
 }
@@ -469,6 +476,7 @@ void CW_StartRecording(uint8_t macroIndex)
 	s_encoder_pattern = 0;
 	s_encoder_length = 0;
 	s_encoder_space_pending = false;
+	s_encoder_overflow = false;
 }
 
 void CW_StopRecording(void)

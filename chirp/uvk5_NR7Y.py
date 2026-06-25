@@ -281,13 +281,13 @@ class UVK5_NR7Y(uvk5_egzumer.UVK5RadioEgzumer):
         except Exception as e:
             LOG.error(f"Error adding keyer mode: {e}")
 
-        # Keyer Speed (10-30 WPM)
+        # Keyer Speed (10-45 WPM)
         try:
             wpm = self._get_cw_wpm()
             cw_wpm = RadioSetting(
                 "cw.wpm",
                 "Keyer Speed (WPM)",
-                RadioSettingValueInteger(10, 30, wpm)
+                RadioSettingValueInteger(10, 45, wpm)
             )
             cw.append(cw_wpm)
         except Exception as e:
@@ -696,13 +696,13 @@ class UVK5_NR7Y(uvk5_egzumer.UVK5RadioEgzumer):
             return 18  # Default 18 WPM
         # Formula from settings.c:237 - bits 0-5
         wpm = byte1 & 0x3F
-        if wpm < 10 or wpm > 30:
+        if wpm < 10 or wpm > 45:
             return 18
         return wpm
-    
+
     def _set_cw_wpm(self, wpm: int) -> None:
-        """Set keyer speed in WPM (10-30)"""
-        wpm = max(10, min(30, wpm))
+        """Set keyer speed in WPM (10-45)"""
+        wpm = max(10, min(45, wpm))
         byte1 = struct.unpack('B', bytes(self._mmap[CW_SETTINGS_ADDR+1:CW_SETTINGS_ADDR+2]))[0]
         # Preserve bit 7 (keyer mode), update bits 0-5
         byte1 = (byte1 & 0x80) | (wpm & 0x3F)

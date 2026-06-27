@@ -409,7 +409,8 @@ const uint8_t gSubMenu_SIDEFUNCTIONS_size = ARRAY_SIZE(gSubMenu_SIDEFUNCTIONS);
 const char* gSubMenu_CW_KEYER_MODE[] =
 {
 	"Mode\nA",
-	"Mode\nB"
+	"Mode\nB",
+	"Ultimatic"
 };
 
 const char* gSubMenu_CW_KEY_INPUT[] =

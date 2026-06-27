@@ -33,6 +33,7 @@ typedef struct {
     bool dah;
     bool dit_rise;
     bool dah_rise;
+    bool last_is_dah;  // true if dah was the most recently pressed paddle (for Ultimatic mode's tie-break)
 } CW_Input;
 
 // Read raw inputs for a specific mode

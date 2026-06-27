@@ -49,6 +49,9 @@ static bool     s_last_dit   = false;
 static bool     s_last_dah   = false;
 static uint32_t s_dit_count  = 0;  // consecutive raw-true reads for dit
 static uint32_t s_dah_count  = 0;  // consecutive raw-true reads for dah
+static bool     s_last_is_dah = false;  // which paddle was pressed most recently (for Ultimatic mode)
+static bool     s_adc_last_tip  = false;  // last known-good ADC paddle state (CEC cable input)
+static bool     s_adc_last_ring = false;
 
 // Read button ring input (SIDE1)
 static void CW_ReadSideButton(bool *ring_out)
@@ -147,25 +150,50 @@ void CW_ReadADCkeys(bool *tip_out, bool *ring_out)
 
     // Validate with up to 4 more samples - stop if any differs by >40 from baseline
     uint16_t val = baseline;
-    
+    bool stable = true;
+
     for (int i = 0; i < 12; i++) {
         uint16_t sample = CW_ReadCH3();
         //samples_taken++;
-        
+
         int16_t diff = (int16_t)sample - (int16_t)baseline;
         if (diff < 0) diff = -diff;
-        
+
         if (diff > CW_ADC_GLITCH_GUARDBAND) {
-            val = 0;  // Inconsistent reading detected
+            stable = false;  // Inconsistent reading detected
             break;
             SYSTICK_DelayUs(5);  // Short delay before next sample
         }
     }
 
-    if (val < gEeprom.CW_ADC_CABLE_20K - CW_ADC_RANGE_LIMIT || val > CW_ADC_MAX) return;  // no paddle pressed or fault
-    else if (val < gEeprom.CW_ADC_CABLE_20K + CW_ADC_RANGE_LIMIT) *ring_out = true;  // 20k ohm
-    else if (val < gEeprom.CW_ADC_CABLE_10K + CW_ADC_RANGE_LIMIT) *tip_out  = true;  // 10k ohm
-    else *tip_out = *ring_out = true;
+    if (!stable) {
+        // Reading was unstable - most likely caught mid-transition between
+        // paddle states (e.g. tip-only -> both pressed, as the second paddle's
+        // resistor engages). Hold the last known-good state instead of
+        // reporting a release: otherwise an already-held paddle would appear
+        // to drop and immediately re-rise alongside the new one once the
+        // reading settles, losing track of which paddle was actually pressed
+        // most recently.
+        *tip_out = s_adc_last_tip;
+        *ring_out = s_adc_last_ring;
+        return;
+    }
+
+    bool tip = false, ring = false;
+    if (val < gEeprom.CW_ADC_CABLE_20K - CW_ADC_RANGE_LIMIT || val > CW_ADC_MAX) {
+        // no paddle pressed or fault
+    } else if (val < gEeprom.CW_ADC_CABLE_20K + CW_ADC_RANGE_LIMIT) {
+        ring = true;  // 20k ohm
+    } else if (val < gEeprom.CW_ADC_CABLE_10K + CW_ADC_RANGE_LIMIT) {
+        tip = true;  // 10k ohm
+    } else {
+        tip = ring = true;
+    }
+
+    *tip_out = tip;
+    *ring_out = ring;
+    s_adc_last_tip = tip;
+    s_adc_last_ring = ring;
 }
 
 // Read raw paddle inputs for a specific mode
@@ -247,6 +275,12 @@ void CW_ReadKeys(CW_Input *in)
     in->dah_rise = (!s_last_dah && deb_dah);
     in->dit      = deb_dit;
     in->dah      = deb_dah;
+
+    // Track which paddle was pressed most recently (a fresh press is exactly
+    // a rising edge), for Ultimatic mode's "both held -> last one wins" rule.
+    if (in->dit_rise) s_last_is_dah = false;
+    else if (in->dah_rise) s_last_is_dah = true;
+    in->last_is_dah = s_last_is_dah;
 
     s_last_dit = deb_dit;
     s_last_dah = deb_dah;
@@ -357,8 +391,11 @@ void CW_ConfigureADCforCECPaddles(bool enable)
 // Reset sampled key states (used from keyer init)
 void CW_HW_ResetKeySamples(void)
 {
-    s_last_dit  = false;
-    s_last_dah  = false;
-    s_dit_count = 0;
-    s_dah_count = 0;
+    s_last_dit   = false;
+    s_last_dah   = false;
+    s_dit_count  = 0;
+    s_dah_count  = 0;
+    s_last_is_dah = false;
+    s_adc_last_tip  = false;
+    s_adc_last_ring = false;
 }

@@ -76,7 +76,8 @@ static const uint8_t CW_KEY_INPUT_menu_to_bitmap[11] = {
 enum CW_KeyerMode_t {
 	CW_IAMBIC_MODE_A = 0,
 	CW_IAMBIC_MODE_B,
-	CW_KEYER_MODE_ULTIMATIC
+	CW_KEYER_MODE_ULTIMATIC,
+	CW_KEYER_MODE_BUG
 };
 typedef enum CW_KeyerMode_t CW_KeyerMode_t;
 
@@ -314,7 +315,7 @@ typedef struct {
 #ifdef ENABLE_CW_MODULATOR
 	uint8_t			  	  CW_TONE_FREQUENCY; 	// Actual frequency in 10s of Hz (e.g. 60 for 600 Hz), stored in eeprom as 50 Hz steps from 450 (0=450, 1=500, ..., 15=1200), default 600
 	uint8_t               CW_SIDETONE_LEVEL;	// CW sidetone level: 0=off, 1-6 scaled volume levels
-	CW_KeyerMode_t        CW_KEYER_MODE;		// Iambic A, Iambic B, or Ultimatic (keyer disabled when CW_KEY_INPUT == HANDKEY)
+	CW_KeyerMode_t        CW_KEYER_MODE;		// Iambic A, Iambic B, Ultimatic, or Bug (keyer disabled when CW_KEY_INPUT == HANDKEY)
 	uint8_t               CW_KEY_WPM;			// actual WPM
 	uint8_t               CW_KEY_INPUT;			// Bitmapped button/port input selections for CW keyer
 	uint16_t			  CW_KEY_INPUT_MENU;	// index of the chosen input method in the menu

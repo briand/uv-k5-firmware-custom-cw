@@ -410,7 +410,8 @@ const char* gSubMenu_CW_KEYER_MODE[] =
 {
 	"Mode\nA",
 	"Mode\nB",
-	"Ultimatic"
+	"Ultimatic",
+	"Bug"
 };
 
 const char* gSubMenu_CW_KEY_INPUT[] =

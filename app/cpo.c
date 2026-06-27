@@ -56,6 +56,7 @@ void CPO_Enter(void)
 	BK4819_WriteRegister(BK4819_REG_3F, 0x0000);        // Disable interrupts
 	BK4819_SetAF(BK4819_AF_ALAM);
 	AUDIO_AudioPathOn();
+    CW_ClearTxDisplay();
 }
 
 void CPO_Exit(void)

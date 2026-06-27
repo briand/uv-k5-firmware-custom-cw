@@ -70,7 +70,9 @@ Controls the volume level of the CW sidetone you hear when transmitting. The low
 
 #### `CWkmod` - CW Keyer Mode
 
-Selects the keyer mode when using paddle inputs (dual-lever key). These modes are modeled after Elecraft mode A/B behavior. 
+Selects the keyer mode when using paddle inputs (dual-lever key). Modes A and B are modeled after Elecraft mode A/B behavior.
+
+Also available, Ultimatic and Semi-Automatic Bug mode. In Bug mode, the dah paddle behaves like a manual handkey (sends for as long as held) while the dit paddle auto-repeats dits at the configured WPM for as long as it's held - classic "bug key" behavior.
 
 **Note:** Keyer mode only applies when using paddle inputs (buttons or port paddles). When using handkey modes, the keyer is disabled and this setting has no effect.
 

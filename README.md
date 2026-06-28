@@ -1,9 +1,12 @@
 # NR7Y's CW mod for the egzumer firmware
 
+## 📦 [Download a prebuilt binary to flash »](https://github.com/briand/uv-k5-firmware-custom-cw/releases)
+## 📖 [Full documentation »](https://github.com/briand/cw-firmware-docs)
+
 This repository builds on the egzumer codebase by adding a set of features specifically for CW operators.
 
 - High-speed RX/TX switching for realtime Morse code sending in true CW modulation
-- Automatic iambic keyer with A/B modes
+- Automatic iambic keyer with A/B/Ultimatic/Bug modes
 - Internal paddle support with PTT/Side1 buttons
 - External paddle support with rework - allows direct connection of a standard paddle with no cable change
 - External paddle support for the CEC resistor-network cable - no internal rework needed
@@ -21,13 +24,13 @@ To make room for the CW features, some of the egzumer mods and radio functions h
 - _disabled_ FM broadcast radio, DTMF dialing/contacts, VOX, NOAA, Air Copy, TX audio bar, low-level backlight, Spectrum
 - Most of these are removed to save program flash space. DTMF contacts are removed specifically to reuse that section of eeprom to store CW message text
 
-> [!IMPORTANT]
-> See [the firmware readme](NR7Y_FIRMWARE_README.md) for additional details about the new menu options and functionality in the mod.
-
 This code continues to be available under the Apache 2.0 license.
 
 > [!NOTE]
 > The below text retains the original egzumer README - as mentioned above, some of the extra features are disabled for this CW mod
+
+---
+---
 
 # Open re-implementation of the Quansheng UV-K5/K6/5R v2.1.27 firmware
 

@@ -37,7 +37,7 @@ CW_MACRO_SIG = 0x80
 CW_SETTINGS_ADDR = 0x0F20  # 3 bytes: freq/vol, mode/wpm, key_input
 
 # Keyer mode display strings (bits 6-7 of CW_SETTINGS_ADDR+1)
-CW_KEYER_MODE_OPTS = ["Iambic A", "Iambic B", "Ultimatic"]
+CW_KEYER_MODE_OPTS = ["Iambic A", "Iambic B", "Ultimatic", "Bug"]
 
 # Key input mode display strings (menu index stored directly, bitmap not stored)
 CW_KEY_INPUT_MODES = [
@@ -675,16 +675,15 @@ class UVK5_NR7Y(uvk5_egzumer.UVK5RadioEgzumer):
         self._mmap[CW_SETTINGS_ADDR] = byte0
 
     def _get_cw_keyer_mode(self) -> int:
-        """Get keyer mode (0=A, 1=B, 2=Ultimatic)"""
+        """Get keyer mode (0=A, 1=B, 2=Ultimatic, 3=Bug)"""
         byte1 = struct.unpack('B', bytes(self._mmap[CW_SETTINGS_ADDR+1:CW_SETTINGS_ADDR+2]))[0]
         if byte1 == 0xFF:
             return 1  # Default Mode B (blank EEPROM) - matches firmware settings.c
-        # Formula from settings.c:236 - bits 6-7
-        mode = (byte1 >> 6) & 0x3
-        return mode if mode <= 2 else 1  # clamp reserved value 3 to Mode B
+        # Formula from settings.c:236 - bits 6-7. All 4 values are valid now.
+        return (byte1 >> 6) & 0x3
 
     def _set_cw_keyer_mode(self, mode: int) -> None:
-        """Set keyer mode (0=A, 1=B, 2=Ultimatic)"""
+        """Set keyer mode (0=A, 1=B, 2=Ultimatic, 3=Bug)"""
         byte1 = struct.unpack('B', bytes(self._mmap[CW_SETTINGS_ADDR+1:CW_SETTINGS_ADDR+2]))[0]
         byte1 = (byte1 & 0x3F) | ((mode & 0x3) << 6)  # preserve bits 0-5 (WPM), set bits 6-7
         self._mmap[CW_SETTINGS_ADDR + 1] = byte1

@@ -6,7 +6,7 @@
 This repository builds on the egzumer codebase by adding a set of features specifically for CW operators.
 
 - High-speed RX/TX switching for realtime Morse code sending in true CW modulation
-- Automatic iambic keyer with A/B modes
+- Automatic iambic keyer with A/B/Ultimatic/Bug modes
 - Internal paddle support with PTT/Side1 buttons
 - External paddle support with rework - allows direct connection of a standard paddle with no cable change
 - External paddle support for the CEC resistor-network cable - no internal rework needed

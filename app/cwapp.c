@@ -126,7 +126,7 @@ void CW_AppUpdate(void)
 			}
 			BK4819_SetAF(BK4819_AF_ALAM);
 			BK4819_WriteRegister(BK4819_REG_70,
-				BK4819_REG_70_ENABLE_TONE1 |
+				(gEeprom.CW_SIDETONE_LEVEL == 0 ? 0 : BK4819_REG_70_ENABLE_TONE1) |
 				(gEeprom.CW_SIDETONE_LEVEL << BK4819_REG_70_SHIFT_TONE1_TUNING_GAIN));
 			BK4819_SetScrambleFrequencyControlWord(gEeprom.CW_TONE_FREQUENCY * 10);
 			#ifdef ENABLE_FLASHLIGHT

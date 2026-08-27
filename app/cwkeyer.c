@@ -548,7 +548,9 @@ CW_Action_t ptt_action(void)
 
     if(gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_ADC) {
         // handkey CEC mode, either key works
-        CW_ReadADCkeys(&ptt, &ptt);
+        bool tip = false, ring = false;
+        CW_ReadADCkeys(&tip, &ring);
+        ptt = tip || ring;
     } else
     {    // Read PTT button (PC5) - active low
         ptt = !(GPIOC->DATA & (1U << GPIOC_PIN_PTT));

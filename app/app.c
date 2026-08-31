@@ -189,6 +189,15 @@ static void HandleIncoming(void)
 		if (gDTMF_RX_index > 0)
 			DTMF_clear_RX();
 #endif
+#ifdef ENABLE_CW_MODULATOR
+		// Silence the physical speaker amp rather than toggling 
+		// BK4819's own AF mux, so the RSSI/noise/glitch squelch
+		// detector (which needs BASEBAND2 selected) keeps working.
+		if (!gMonitor && (gRxVfo->Modulation == MODULATION_CW || gRxVfo->Modulation == MODULATION_USB)) {
+			AUDIO_AudioPathOff();
+			gEnableSpeaker = false;
+		}
+#endif
 		if (gCurrentFunction != FUNCTION_FOREGROUND) {
 			FUNCTION_Select(FUNCTION_FOREGROUND);
 			gUpdateDisplay = true;

@@ -194,6 +194,21 @@ void ACTION_Monitor(void)
 
 	RADIO_SetupRegisters(true);
 
+#ifdef ENABLE_CW_MODULATOR
+	// Silence the physical speaker amp BEFORE touching BK4819's AF mode
+	if (gRxVfo->Modulation == MODULATION_CW || gRxVfo->Modulation == MODULATION_USB) {
+		AUDIO_AudioPathOff();
+		gEnableSpeaker = false;
+	}
+#endif
+
+	// RADIO_SetupRegisters() leaves AF stuck at BK4819_AF_MUTE (via
+	// BK4819_SetupSquelch()'s tail), which breaks the hardware squelch/RSSI
+	// detector until RADIO_SetModulation() re-establishes the real demod
+	// mode
+	RADIO_SetModulation(gRxVfo->Modulation);
+	gMonitor = false;
+
 #ifdef ENABLE_FMRADIO
 	if (gFmRadioMode) {
 		FM_Start();

@@ -776,16 +776,15 @@ CW_Action_t CW_HandleState(void)
         }
 #endif
         // Sample paddles for memory logic - skip if we already know alternate is pending.
-        // Ultimatic never sets s_pending_alternate here, so it always reads (decisions
-        // are made fresh at the next gap, not queued via memory).
         if(!s_pending_alternate)
         {
             CW_ReadKeys(&in);
 
-            // Memory logic: depends on keyer mode and element type. Ultimatic has no
-            // memory queueing at all - it falls through after the read above.
-            if (gEeprom.CW_KEYER_MODE == CW_IAMBIC_MODE_A) {
-                // Type A: Purely edge detection for opposite paddle throughout element
+            // Memory logic: depends on keyer mode and element type.
+            if (gEeprom.CW_KEYER_MODE == CW_IAMBIC_MODE_A || gEeprom.CW_KEYER_MODE == CW_KEYER_MODE_ULTIMATIC) {
+                // Type A (and Ultimatic): edge detection for opposite paddle throughout
+                // element, so a brief tap that's released before this element ends is
+                // still remembered and fires next instead of being silently dropped.
                 if (s_active_is_dit && in.dah_rise) {
                     s_pending_alternate = true;
                 } else if (!s_active_is_dit && in.dit_rise) {
@@ -829,30 +828,19 @@ CW_Action_t CW_HandleState(void)
         const uint16_t elapsed_gap = timer_millis_low16_since(s_elem_start_count);
         
         // Read only if needed
-        if(!s_pending_alternate) // briand - lets try doing this regardless of mode // && (gEeprom.CW_KEYER_MODE == CW_IAMBIC_MODE_A))
+        if(!s_pending_alternate)
         {
             // keep doing sampling during gap for memory logic
             CW_ReadKeys(&in);
 
-            // Mode A style Edge detection for opposite key throughout element AND gap, but for
-            // both iambic modes. Ultimatic doesn't queue an alternate here - its next element
-            // is decided fresh below, every time, from current paddle state.
-            if (gEeprom.CW_KEYER_MODE != CW_KEYER_MODE_ULTIMATIC) {
-                if (s_active_is_dit && in.dah_rise) {
-                    s_pending_alternate = true;
-                } else if (!s_active_is_dit && in.dit_rise) {
-                    s_pending_alternate = true;
-                }
+            // Mode A style edge detection for opposite key throughout element AND gap,
+            // for iambic A/B and Ultimatic alike, so a brief tap released before the
+            // gap ends is still remembered instead of being silently dropped.
+            if (s_active_is_dit && in.dah_rise) {
+                s_pending_alternate = true;
+            } else if (!s_active_is_dit && in.dit_rise) {
+                s_pending_alternate = true;
             }
-            // I think we don't want B reading during gap? this was probably the double-dit problem.
-            // else {
-            //     // Standard Type B logic: state detection
-            //     if (s_active_is_dit && in.dah) {
-            //         s_pending_alternate = true;
-            //     } else if (!s_active_is_dit && in.dit) {
-            //         s_pending_alternate = true;
-            //     }
-            // }
         }
         if (elapsed_gap >= s_gap_count) {
 

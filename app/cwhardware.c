@@ -231,8 +231,10 @@ bool CW_ReadKeysForMode(uint8_t mode, bool *dit_out, bool *dah_out)
         CW_ReadSideButton(&hw_ring);
     }
     
-    // Read port ring input if enabled and OR with button ring
-    if (mode & CW_KEY_FLAG_PORT_RING) {
+    // Read port ring input if enabled and OR with button ring. Port HandKey
+    // (NO_KEYER with PORT_GROUND, the only NO_KEYER mode that gets here) reads
+    // the ring too, since either port contact is the key.
+    if (mode & (CW_KEY_FLAG_PORT_RING | CW_KEY_FLAG_NO_KEYER)) {
         bool port_ring = CW_ReadGpioDeglitched(&GPIOB->DATA, CW_KEYER_RING_GPIO_BIT, true);
         hw_ring = hw_ring || port_ring;  // OR both sources
     }

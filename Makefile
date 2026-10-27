@@ -5,14 +5,16 @@
 
 # ---- STOCK QUANSHENG FEATURES ----
 ENABLE_UART                   ?= 1
+ENABLE_UART_AES_LOCK          ?= 0
 ENABLE_AIRCOPY                ?= 0
 ENABLE_FMRADIO                ?= 0
 ENABLE_NOAA                   ?= 0
-ENABLE_VOICE                  ?= 0
+ENABLE_VOICE                  ?= 1
 ENABLE_VOX                    ?= 0
 ENABLE_ALARM                  ?= 0
 ENABLE_TX1750                 ?= 0
 ENABLE_PWRON_PASSWORD         ?= 0
+ENABLE_DTMF                   ?= 0
 ENABLE_DTMF_CALLING           ?= 0
 ENABLE_FLASHLIGHT             ?= 1
 
@@ -39,9 +41,9 @@ ENABLE_SPECTRUM               ?= 0
 ENABLE_REDUCE_LOW_MID_TX_POWER?= 0
 ENABLE_BYP_RAW_DEMODULATORS   ?= 0
 ENABLE_BLMIN_TMP_OFF          ?= 0
-ENABLE_SCAN_RANGES            ?= 1
+ENABLE_SCAN_RANGES            ?= 0
 ENABLE_CW_MODULATOR           ?= 1
-ENABLE_CODE_PRACTICE          ?= 1
+ENABLE_CW_ENUNCIATE           ?= 1
 ENABLE_MILLIS                 ?= 0
 ENABLE_EXTRA_FILTER           ?= 1
 
@@ -76,9 +78,21 @@ ifeq ($(ENABLE_CW_MODULATOR),1)
 	ENABLE_EXTRA_FILTER := 1
 endif
 
-ifeq ($(ENABLE_CODE_PRACTICE),1)
+ifeq ($(ENABLE_CW_ENUNCIATE),1)
 ifeq ($(ENABLE_CW_MODULATOR),0)
-$(error ENABLE_CODE_PRACTICE requires ENABLE_CW_MODULATOR)
+$(error ENABLE_CW_ENUNCIATE requires ENABLE_CW_MODULATOR)
+endif
+endif
+
+ifeq ($(ENABLE_UART_AES_LOCK),1)
+ifeq ($(ENABLE_UART),0)
+$(error ENABLE_UART_AES_LOCK requires ENABLE_UART)
+endif
+endif
+
+ifeq ($(ENABLE_DTMF_CALLING),1)
+ifeq ($(ENABLE_DTMF),0)
+$(error ENABLE_DTMF_CALLING requires ENABLE_DTMF)
 endif
 endif
 
@@ -103,7 +117,7 @@ OBJS += external/printf/printf.o
 
 # Drivers
 OBJS += driver/adc.o
-ifeq ($(ENABLE_UART),1)
+ifeq ($(ENABLE_UART_AES_LOCK),1)
 	OBJS += driver/aes.o
 endif
 OBJS += driver/backlight.o
@@ -133,11 +147,13 @@ ifeq ($(ENABLE_CW_MODULATOR),1)
     OBJS += app/cwkeyer.o
     OBJS += app/cwhardware.o
     OBJS += app/cwmacro.o
+    OBJS += app/cwpopup.o
 	# CW uses timer, but not millis (the ISR)
 	OBJS += driver/timer.o
-endif
-ifeq ($(ENABLE_CODE_PRACTICE),1)
 	OBJS += app/cpo.o
+endif
+ifeq ($(ENABLE_CW_ENUNCIATE),1)
+	OBJS += app/cwenunciate.o
 endif
 ifeq ($(ENABLE_MILLIS),1)
 	OBJS += driver/timer.o
@@ -150,7 +166,9 @@ endif
 OBJS += app/app.o
 OBJS += app/chFrScanner.o
 OBJS += app/common.o
-OBJS += app/dtmf.o
+ifeq ($(ENABLE_DTMF),1)
+	OBJS += app/dtmf.o
+endif
 ifeq ($(ENABLE_FLASHLIGHT),1)
 	OBJS += app/flashlight.o
 endif
@@ -198,7 +216,7 @@ endif
 OBJS += ui/main.o
 OBJS += ui/menu.o
 OBJS += ui/scanner.o
-ifeq ($(ENABLE_CODE_PRACTICE),1)
+ifeq ($(ENABLE_CW_MODULATOR),1)
 	OBJS += ui/cpo.o
 endif
 OBJS += ui/status.o
@@ -403,14 +421,21 @@ endif
 ifeq ($(ENABLE_CW_MODULATOR),1)
 	CFLAGS  += -DENABLE_CW_MODULATOR
 endif
-ifeq ($(ENABLE_CODE_PRACTICE),1)
-	CFLAGS  += -DENABLE_CODE_PRACTICE
+ifeq ($(ENABLE_CW_ENUNCIATE),1)
+	CFLAGS  += -DENABLE_CW_ENUNCIATE
+endif
+# shared voice / CW enunciation queue
+ifneq ($(filter 1,$(ENABLE_VOICE) $(ENABLE_CW_ENUNCIATE)),)
+	CFLAGS  += -DENABLE_ENUNCIATE
 endif
 ifeq ($(ENABLE_MILLIS),1)
 	CFLAGS  += -DENABLE_MILLIS
 endif
 ifeq ($(ENABLE_EXTRA_FILTER),1)
 	CFLAGS  += -DENABLE_EXTRA_FILTER
+endif
+ifeq ($(ENABLE_DTMF),1)
+	CFLAGS  += -DENABLE_DTMF
 endif
 ifeq ($(ENABLE_DTMF_CALLING),1)
 	CFLAGS  += -DENABLE_DTMF_CALLING
@@ -423,6 +448,9 @@ ifeq ($(ENABLE_FLASHLIGHT),1)
 endif
 ifeq ($(ENABLE_UART_RW_BK_REGS),1)
 	CFLAGS  += -DENABLE_UART_RW_BK_REGS
+endif
+ifeq ($(ENABLE_UART_AES_LOCK),1)
+	CFLAGS  += -DENABLE_UART_AES_LOCK
 endif
 ifeq ($(ENABLE_CUSTOM_MENU_LAYOUT),1)
 	CFLAGS  += -DENABLE_CUSTOM_MENU_LAYOUT

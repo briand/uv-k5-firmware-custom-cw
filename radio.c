@@ -40,6 +40,9 @@
 #include "radio.h"
 #include "settings.h"
 #include "ui/menu.h"
+#ifdef ENABLE_CW_MODULATOR
+	#include "ui/main.h"  // dBmCorrTable
+#endif
 #include "driver/uart.h"
 
 VFO_Info_t    *gTxVfo;
@@ -444,12 +447,10 @@ void RADIO_ConfigureSquelchAndOutputPower(VFO_Info_t *pInfo)
 	FREQUENCY_Band_t Band = FREQUENCY_GetBand(pInfo->pRX->Frequency);
 	uint16_t Base = (Band < BAND4_174MHz) ? 0x1E60 : 0x1E00;
 		
-	if (gEeprom.SQUELCH_LEVEL == 0
-	#ifdef ENABLE_CW_MODULATOR
-		|| ((pInfo->Modulation == MODULATION_CW ||
-		     pInfo->Modulation == MODULATION_USB) && gMonitor)
-	#endif
-	)
+	// CW/USB use the real thresholds too, even while monitoring: monitor mode ignores
+	// squelch anyway, and turning monitor off only re-applies these stored values, so
+	// forcing them always-open here left the squelch with no closed->open edge to report
+	if (gEeprom.SQUELCH_LEVEL == 0)
 	{	// squelch == 0 (off)
 		pInfo->SquelchOpenRSSIThresh    = 0;     // 0 ~ 255
 		pInfo->SquelchOpenNoiseThresh   = 127;   // 127 ~ 0
@@ -503,6 +504,31 @@ void RADIO_ConfigureSquelchAndOutputPower(VFO_Info_t *pInfo)
 
 		pInfo->SquelchOpenNoiseThresh   = (noise_open   > 127) ? 127 : noise_open;
 		pInfo->SquelchCloseNoiseThresh  = (noise_close  > 127) ? 127 : noise_close;
+
+#ifdef ENABLE_CW_MODULATOR
+		// CW/USB: RSSI-only squelch. The noise and glitch measurements come off the
+		// FM discriminator, which BASEBAND2 bypasses, so their readings are meaningless
+		// here and kept the squelch from ever opening. Park them at the limits where
+		// they never block an open (noise < 127, glitch < 255) or force a close
+		// (noise > 127, glitch > 255), leaving RSSI alone in charge.
+		//
+		// The calibrated RSSI thresholds are FM ones, halved above for sensitivity, and
+		// sit far below the CW/USB noise floor (about -147 dBm at level 1), so the
+		// squelch opened on noise. Use a plain scale instead, in the dBm the screen
+		// shows: each squelch level is 5 dB, opening at -125 dBm for level 1 up to
+		// -85 dBm for level 9, closing 3 dB lower. The screen adds dBmCorrTable to
+		// the chip's reading, so take it back off here, as spectrum.c does: RSSI
+		// units are 0.5 dB from -160 dBm (BK4819_GetRSSI_dBm).
+		if (pInfo->Modulation == MODULATION_CW || pInfo->Modulation == MODULATION_USB) {
+			const int16_t open_dBm = -130 + 5 * gEeprom.SQUELCH_LEVEL;  // as displayed
+			pInfo->SquelchOpenRSSIThresh    = (uint8_t)((open_dBm + 160 - dBmCorrTable[Band]) * 2);
+			pInfo->SquelchCloseRSSIThresh   = pInfo->SquelchOpenRSSIThresh - 6u;
+			pInfo->SquelchOpenNoiseThresh   = 127;
+			pInfo->SquelchCloseNoiseThresh  = 127;
+			pInfo->SquelchOpenGlitchThresh  = 255;
+			pInfo->SquelchCloseGlitchThresh = 255;
+		}
+#endif
 	}
 
 	// *******************************
@@ -764,8 +790,10 @@ void RADIO_SetupRegisters(bool switchToForeground)
 	// RX expander
 	BK4819_SetCompander((gRxVfo->Modulation == MODULATION_FM && gRxVfo->Compander >= 2) ? gRxVfo->Compander : 0);
 
+#ifdef ENABLE_DTMF
 	BK4819_EnableDTMF();
 	InterruptMask |= BK4819_REG_3F_DTMF_5TONE_FOUND;
+#endif
 
 	RADIO_SetupAGC(gRxVfo->Modulation == MODULATION_AM, false);
 
@@ -937,7 +965,9 @@ void RADIO_SetModulation(ModulationMode_t modulation)
 		case MODULATION_CW:
 #endif	
 		case MODULATION_USB:
-			gMonitor = true;
+			// gMonitor's CW/USB default is set where the VFO is (re)configured, not
+			// here: this runs after every sidetone element, enunciation and RX start,
+			// and forcing it on here undid the user turning monitor off
 			mod = BK4819_AF_BASEBAND2;
 			break;
 
@@ -1136,7 +1166,11 @@ void RADIO_SendEndOfTransmission(void)
 	if (gTxVfo->Modulation != MODULATION_USB) {
 #endif
 	BK4819_PlayRoger();
+#ifdef ENABLE_DTMF
 	DTMF_SendEndOfTransmission();
+#else
+	BK4819_ExitDTMF_TX(true);
+#endif
 
 	// send the CTCSS/DCS tail tone - allows the receivers to mute the usual FM squelch tail/crash
 	if(gEeprom.TAIL_TONE_ELIMINATION)

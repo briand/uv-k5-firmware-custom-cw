@@ -35,6 +35,12 @@ CW_MACRO_SIG = 0x80
 
 # CW settings EEPROM addresses
 CW_SETTINGS_ADDR = 0x0F20  # 3 bytes: freq/vol, mode/wpm, key_input
+CW_SETTINGS2_ADDR = 0x0F28  # second CW block: byte 0 = proper roger dah dits, 1-7 unused (0xFF)
+
+# Proper roger dah length in dits (settings.h CW_ROGER_DAH_DITS_*)
+CW_ROGER_DAH_DITS_MIN = 3
+CW_ROGER_DAH_DITS_MAX = 20
+CW_ROGER_DAH_DITS_DEFAULT = 9
 
 # Keyer mode display strings (bits 6-7 of CW_SETTINGS_ADDR+1)
 CW_KEYER_MODE_OPTS = ["Iambic A", "Iambic B", "Ultimatic", "Bug"]
@@ -78,7 +84,10 @@ KEYACTIONS_LIST = [
     "Repeat CW MSG 2",           # 19: ACTION_OPT_REPEAT_CWMSG2 (beta3)
     "Repeat CW MSG 3",           # 20: ACTION_OPT_REPEAT_CWMSG3 (beta3)
     "Repeat CW MSG 4",           # 21: ACTION_OPT_REPEAT_CWMSG4 (beta3)
-    # SPECTRUM disabled due to lack of space
+    "Spectrum (not built)",      # 22: ACTION_OPT_SPECTRUM (disabled due to lack of space)
+    "Say label",                 # 23: ACTION_OPT_SAY_LABEL
+    "CW proper roger",           # 24: ACTION_OPT_CW_PROPER_ROGER
+    "CW speed",                  # 25: ACTION_OPT_CW_SPEED
 ]
 
 
@@ -334,6 +343,20 @@ class UVK5_NR7Y(uvk5_egzumer.UVK5RadioEgzumer):
             cw.append(cw_repeat)
         except Exception as e:
             LOG.error(f"Error adding repeat delay setting: {e}")
+
+        # Proper roger dah length
+        try:
+            cw_roger = RadioSetting(
+                "cw.roger_dits",
+                "Proper Roger Dah Length (dits)",
+                RadioSettingValueInteger(CW_ROGER_DAH_DITS_MIN, CW_ROGER_DAH_DITS_MAX,
+                                         self._get_cw_roger_dits())
+            )
+            cw_roger.set_doc("Length of the dah in the PROPER ROGER side key action "
+                             "(3 = a plain R, default 9)")
+            cw.append(cw_roger)
+        except Exception as e:
+            LOG.error(f"Error adding proper roger setting: {e}")
 
         # CW Macros (4 messages)
         macros = RadioSettingGroup("cw_macros", "CW Macros")
@@ -623,6 +646,9 @@ class UVK5_NR7Y(uvk5_egzumer.UVK5RadioEgzumer):
                     elif name == "cw.repeat_delay":
                         self._set_cw_repeat_delay(int(setting.value))
                         LOG.debug(f"Set CW repeat delay to {setting.value}")
+                    elif name == "cw.roger_dits":
+                        self._set_cw_roger_dits(int(setting.value))
+                        LOG.debug(f"Set proper roger dah to {setting.value} dits")
                     elif name.startswith("cw.msg"):
                         idx = int(name[len("cw.msg"):])
                         self._set_cw_msg(idx, str(setting.value))
@@ -756,6 +782,19 @@ class UVK5_NR7Y(uvk5_egzumer.UVK5RadioEgzumer):
         """Set CW message repeat delay (0-127 seconds) - beta3"""
         delay = max(0, min(127, delay))
         self._mmap[CW_SETTINGS_ADDR + 3] = delay & 0x7F
+
+    def _get_cw_roger_dits(self) -> int:
+        """Get proper roger dah length in dits; 0xFF or out of range = default"""
+        val = self._mmap[CW_SETTINGS2_ADDR]
+        val = val if isinstance(val, int) else ord(val)
+        if CW_ROGER_DAH_DITS_MIN <= val <= CW_ROGER_DAH_DITS_MAX:
+            return val
+        return CW_ROGER_DAH_DITS_DEFAULT
+
+    def _set_cw_roger_dits(self, dits: int) -> None:
+        """Set proper roger dah length in dits"""
+        dits = max(CW_ROGER_DAH_DITS_MIN, min(CW_ROGER_DAH_DITS_MAX, dits))
+        self._mmap[CW_SETTINGS2_ADDR] = dits
 
     # ======== CW Macro Encode/Decode ========
     

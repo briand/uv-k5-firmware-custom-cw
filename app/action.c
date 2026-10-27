@@ -41,10 +41,12 @@
 #include "misc.h"
 #include "settings.h"
 #include "ui/inputbox.h"
+#include "ui/menu.h"
 #include "ui/ui.h"
 
 #ifdef ENABLE_CW_MODULATOR
 #include "app/cwkeyer.h"
+#include "app/cwpopup.h"
 #endif
 
 #if defined(ENABLE_FMRADIO)
@@ -72,6 +74,7 @@ static void ACTION_RepeatCWMsg1(void);
 static void ACTION_RepeatCWMsg2(void);
 static void ACTION_RepeatCWMsg3(void);
 static void ACTION_RepeatCWMsg4(void);
+static void ACTION_CWProperRoger(void);
 #endif
 
 void (*action_opt_table[])(void) = {
@@ -129,12 +132,20 @@ void (*action_opt_table[])(void) = {
 	[ACTION_OPT_REPEAT_CWMSG2] = &ACTION_RepeatCWMsg2,
 	[ACTION_OPT_REPEAT_CWMSG3] = &ACTION_RepeatCWMsg3,
 	[ACTION_OPT_REPEAT_CWMSG4] = &ACTION_RepeatCWMsg4,
+	[ACTION_OPT_CW_PROPER_ROGER] = &ACTION_CWProperRoger,
+	[ACTION_OPT_CW_SPEED] = &CW_Popup_Speed,
 #endif
 
 #ifdef ENABLE_SPECTRUM
 	[ACTION_OPT_SPECTRUM] = &APP_RunSpectrum,
 #else
 	[ACTION_OPT_SPECTRUM] = &FUNCTION_NOP,
+#endif
+
+#ifdef ENABLE_ENUNCIATE
+	[ACTION_OPT_SAY_LABEL] = &ACTION_SayLabel,
+#else
+	[ACTION_OPT_SAY_LABEL] = &FUNCTION_NOP,
 #endif
 };
 
@@ -240,8 +251,10 @@ void ACTION_Scan(bool bRestart)
 #ifdef ENABLE_DTMF_CALLING
 	DTMF_clear_RX();
 #endif
+#ifdef ENABLE_DTMF
 	gDTMF_RX_live_timeout = 0;
 	memset(gDTMF_RX_live, 0, sizeof(gDTMF_RX_live));
+#endif
 
 	RADIO_SelectVfos();
 
@@ -310,6 +323,12 @@ void ACTION_SwitchDemodul(void)
 
 	// Reconfigure radio path now (not only on later key release/save handling).
 	gFlagReconfigureVfos = true;
+
+#ifdef ENABLE_CW_ENUNCIATE
+	// APP starts it after the reconfigure, so it plays in the new mode's audio path
+	AUDIO_SetCWEnunciate(gModulationStr[gTxVfo->Modulation]);
+	gAnotherVoiceID = (VOICE_ID_t)0xFE;
+#endif
 }
 
 void ACTION_SwitchFilter(void)
@@ -331,6 +350,7 @@ void ACTION_SwitchFilter(void)
 
 void ACTION_Handle(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 {
+#ifdef ENABLE_DTMF
 	if (gScreenToDisplay == DISPLAY_MAIN && gDTMF_InputMode){
 		 // entering DTMF code
 
@@ -359,6 +379,7 @@ void ACTION_Handle(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 #endif
 		return;
 	}
+#endif
 
 	enum ACTION_OPT_t funcShort = ACTION_OPT_NONE;
 	enum ACTION_OPT_t funcLong  = ACTION_OPT_NONE;
@@ -398,6 +419,9 @@ void ACTION_Handle(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 
 	// held or released after short press beyond this point
 
+#ifdef ENABLE_CW_MODULATOR
+	CW_Popup_OnAction(funcShort);
+#endif
 	action_opt_table[funcShort]();
 }
 
@@ -512,6 +536,17 @@ static void ACTION_RepeatCWMsg4(void)
 {
 	CW_StartMacroPlayback(3, true);
 }
+
+static void ACTION_CWProperRoger(void)
+{
+	// playback only drives the keyer in CW mode, same rule as playing from the menu
+	if (gTxVfo->Modulation != MODULATION_CW) {
+		gBeepToPlay = BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL;
+		return;
+	}
+
+	CW_StartProperRoger();
+}
 #endif
 
 
@@ -544,6 +579,40 @@ static void ACTION_AlarmOr1750(const bool b1750)
 
 #endif
 
+#if defined(ENABLE_VOICE) && (defined(ENABLE_VOX) || defined(ENABLE_CW_MODULATOR))
+// queue "VOX" followed by "ON"/"OFF"; 0xFE tells APP to play the queue as-is
+static void PlayVoxOnOff(bool on)
+{
+	AUDIO_SetVoiceID(0, VOICE_ID_VOX);
+	AUDIO_SetVoiceID(1, on ? VOICE_ID_ON : VOICE_ID_OFF);
+	gAnotherVoiceID = (VOICE_ID_t)0xFE;
+}
+#endif
+
+#ifdef ENABLE_ENUNCIATE
+// main screen: the VFO frequency (voice, or CW in a build without voice)
+// menu: the highlighted menu item, or the displayed value when in a sub-menu (CW)
+void ACTION_SayLabel(void)
+{
+	if (gScreenToDisplay == DISPLAY_MAIN)
+	{
+	#ifdef ENABLE_VOICE
+		AUDIO_SetFrequencyVoice(gTxVfo->pRX->Frequency);
+	#else
+		AUDIO_SetFrequencyCW(gTxVfo->pRX->Frequency);
+	#endif
+	}
+#ifdef ENABLE_CW_ENUNCIATE
+	else if (gScreenToDisplay == DISPLAY_MENU)
+		AUDIO_SetCWEnunciate(gIsInSubMenu ? gMenuLabelText : MenuList[gMenuCursor].name);
+#endif
+	else
+		return;
+
+	gAnotherVoiceID = (VOICE_ID_t)0xFE;
+}
+#endif
+
 #ifdef ENABLE_VOX
 void ACTION_Vox(void)
 {
@@ -553,7 +622,7 @@ void ACTION_Vox(void)
 	gUpdateStatus        = true;
 
 	#ifdef ENABLE_VOICE
-		gAnotherVoiceID  = VOICE_ID_VOX;
+		PlayVoxOnOff(gEeprom.VOX_SWITCH);
 	#endif
 }
 #endif
@@ -565,6 +634,9 @@ void ACTION_VoxOrCwBreakIn(void)
 		gEeprom.CW_BREAKIN_ENABLE = !gEeprom.CW_BREAKIN_ENABLE;
 		gRequestSaveSettings      = true;
 		gUpdateStatus             = true;
+		#ifdef ENABLE_VOICE
+			PlayVoxOnOff(gEeprom.CW_BREAKIN_ENABLE);
+		#endif
 		return;
 	}
 #endif

@@ -810,7 +810,10 @@ void BK4819_SetAF(BK4819_AF_Type_t AF)
 	//
 	// Also, setting an active AF mode, even if it's the same one we're already in, will cause a pop.
 
-	static BK4819_AF_Type_t lastAF = BK4819_AF_MUTE;
+	// Starts as "unknown" so the first call always writes: REG_47 isn't set in BK4819_Init,
+	// and assuming MUTE here left FM boots with live demod audio (heard as static over the
+	// welcome voice) because the first SetAF(MUTE) from squelch setup was skipped.
+	static int lastAF = -1;
 	if(AF != lastAF && (AF != BK4819_AF_MUTE || lastAF != BK4819_AF_ALAM)) {
 		lastAF = AF;
 #endif

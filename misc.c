@@ -79,7 +79,9 @@ const uint16_t    NOAA_countdown_3_10ms            =   200 / 10;   // 200ms
 const uint16_t    cw_suspend_limit_1ms             =   300;        // 300ms standby -> RX
 #endif
 
+#ifdef ENABLE_UART_AES_LOCK
 const uint32_t    gDefaultAesKey[4]                = {0x4AA5CC60, 0x0312CC5F, 0xFFD2DABB, 0x6BBA7F92};
+#endif
 
 const uint8_t     gMicGain_dB2[5]                  = {3, 8, 16, 24, 31};
 
@@ -107,10 +109,12 @@ uint8_t           gSetting_battery_text;
 
 bool              gMonitor = false;           // true opens the squelch
 
+#ifdef ENABLE_UART_AES_LOCK
 uint32_t          gCustomAesKey[4];
 bool              bHasCustomAesKey;
 uint32_t          gChallenge[4];
 uint8_t           gTryCount;
+#endif
 
 uint16_t          gEEPROM_RSSI_CALIB[7][4];
 
@@ -248,7 +252,9 @@ volatile bool     gFlagTailToneEliminationComplete;
 
 volatile uint8_t  boot_counter_10ms;
 
+#ifdef ENABLE_UART_AES_LOCK
 uint8_t           gIsLocked = 0xFF;
+#endif
 
 #ifdef ENABLE_CW_MODULATOR
 	volatile uint16_t gCW_SuspendCounter_1ms;

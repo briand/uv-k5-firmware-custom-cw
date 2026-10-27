@@ -164,11 +164,13 @@ extern uint8_t               gSetting_battery_text;
 
 extern bool                  gMonitor;
 
+#ifdef ENABLE_UART_AES_LOCK
 extern const uint32_t        gDefaultAesKey[4];
 extern uint32_t              gCustomAesKey[4];
 extern bool                  bHasCustomAesKey;
 extern uint32_t              gChallenge[4];
 extern uint8_t               gTryCount;
+#endif
 
 extern uint16_t              gEEPROM_RSSI_CALIB[7][4];
 
@@ -323,7 +325,9 @@ extern volatile bool         gCW_PlayIndicatorOn;
 #ifdef ENABLE_FMRADIO
 	extern volatile bool     gScheduleFM;
 #endif
+#ifdef ENABLE_UART_AES_LOCK
 extern uint8_t               gIsLocked;
+#endif
 extern volatile uint8_t      boot_counter_10ms;
 
 int32_t NUMBER_AddWithWraparound(int32_t Base, int32_t Add, int32_t LowerLimit, int32_t UpperLimit);

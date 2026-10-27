@@ -58,7 +58,7 @@ enum
 	MENU_ABR_MAX,
 	MENU_TDR,
 	MENU_BEEP,
-#ifdef ENABLE_VOICE
+#ifdef ENABLE_ENUNCIATE
 	MENU_VOICE,
 #endif
 	MENU_SC_REV,
@@ -82,20 +82,26 @@ enum
 #ifdef ENABLE_DTMF_CALLING
 	MENU_ANI_ID,
 #endif
+#ifdef ENABLE_DTMF
 	MENU_UPCODE,
 	MENU_DWCODE,
 	MENU_PTT_ID,
 	MENU_D_ST,
+#endif
 #ifdef ENABLE_DTMF_CALLING
 	MENU_D_RSP,
 	MENU_D_HOLD,
 #endif
+#ifdef ENABLE_DTMF
 	MENU_D_PRE,
+#endif
 #ifdef ENABLE_DTMF_CALLING	
 	MENU_D_DCD,
 	MENU_D_LIST,
 #endif
+#ifdef ENABLE_DTMF
 	MENU_D_LIVE_DEC,
+#endif
 	MENU_PONMSG,
 	MENU_ROGER,
 	MENU_VOL,
@@ -135,6 +141,7 @@ enum
 	MENU_CW_MSG3,
 	MENU_CW_MSG4,
 	MENU_CW_MSG_REPEAT,
+	MENU_CW_ROGER_DITS,
 	MENU_CW_BKIN,
 	MENU_CW_CRD,
 	MENU_CW_ADC_LO_20K,
@@ -157,9 +164,6 @@ extern const char        gSubMenu_SAVE[5][4];
 extern const char        gSubMenu_TOT[11][7];
 extern const char* const gSubMenu_RXMode[4];
 
-#ifdef ENABLE_VOICE
-	extern const char    gSubMenu_VOICE[3][4];
-#endif
 extern const char        gSubMenu_SC_REV[3][8];
 extern const char* const gSubMenu_MDF[4];
 #ifdef ENABLE_ALARM
@@ -189,6 +193,10 @@ extern const char*        gSubMenu_CW_KEY_PORT[3];
 extern bool              gIsInSubMenu;
 				         
 extern uint8_t           gMenuCursor;
+#ifdef ENABLE_CW_ENUNCIATE
+	// copy of the value text last drawn for the current menu item, for SAY LABEL
+	extern char          gMenuLabelText[ENUNCIATE_QUEUE_LEN + 9];
+#endif
 
 extern int32_t           gSubMenuSelection;
 				         

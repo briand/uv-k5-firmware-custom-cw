@@ -54,7 +54,11 @@ BOOT_Mode_t BOOT_GetMode(void)
 		if (Keys[0] == KEY_SIDE1)
 			return BOOT_MODE_F_LOCK;
 
-		#ifdef ENABLE_AIRCOPY
+		// the accessibility path wins over aircopy if both are built in
+		#if defined(ENABLE_ENUNCIATE)
+			if (Keys[0] == KEY_SIDE2)
+				return BOOT_MODE_BLIND;
+		#elif defined(ENABLE_AIRCOPY)
 			if (Keys[0] == KEY_SIDE2)
 				return BOOT_MODE_AIRCOPY;
 		#endif

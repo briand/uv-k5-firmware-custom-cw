@@ -22,7 +22,11 @@
 
 #include "app/cwapp.h"
 #include "app/cwkeyer.h"
+#ifdef ENABLE_CW_ENUNCIATE
+#include "app/cwenunciate.h"
+#endif
 #include "app/cwmacro.h"
+#include "app/cwpopup.h"
 #include "app/app.h"
 #include "app/menu.h"
 #include "audio.h"
@@ -37,9 +41,7 @@
 #include "settings.h"
 #include "driver/system.h"
 #include "driver/timer.h"
-#ifdef ENABLE_CODE_PRACTICE
 #include "app/cpo.h"
-#endif
 #ifdef ENABLE_FLASHLIGHT
 #include "app/flashlight.h"
 #endif
@@ -76,6 +78,66 @@ void CW_EndTxNow(void)
 }
 
 // ---------------------------------------------------------------------------
+// Stuck key transmit timeout (after KF1BER's k1 cwguard). Normal sending always
+// pauses between characters, so keying that runs CW_GUARD_LIMIT_MS without a
+// break of two dits or more is a stuck key or paddle (a shorted dit paddle keys
+// endless dits, which a plain key-down timer misses). TX drops and keying stays
+// locked out until the key has been up for CW_GUARD_RELEASE_MS.
+// ---------------------------------------------------------------------------
+#define CW_GUARD_LIMIT_MS    7000
+#define CW_GUARD_RELEASE_MS  1000
+
+static bool     s_guard_keyed;      // the last action left the carrier on
+static bool     s_guard_break = true;  // the key has been up for a character break since the last run
+static bool     s_guard_locked;     // tripped, waiting for the key to be released
+static uint16_t s_guard_run_start;  // first element after the last character break
+static uint16_t s_guard_off_since;  // when the carrier last went off
+
+// Returns the action to apply: unchanged normally, CW_ACTION_CARRIER_OFF on the
+// tripping call, CW_ACTION_NONE while locked out. *tripped is set on the tripping call.
+// Only short spans are measured, so the 16-bit millis never wraps under it: the
+// break and release checks run every poll while the key is up.
+static CW_Action_t CW_GuardFilter(CW_Action_t action, bool *tripped)
+{
+	const bool     keyed = (action == CW_ACTION_CARRIER_ON || action == CW_ACTION_CARRIER_HOLD_ON);
+	const uint16_t now   = timer_millis_low16();
+
+	*tripped = false;
+
+	if (!keyed) {
+		if (s_guard_keyed)
+			s_guard_off_since = now;
+		s_guard_keyed = false;
+
+		const uint16_t off_ms = timer_millis_low16_since(s_guard_off_since);
+		if (off_ms >= 2400u / gEeprom.CW_KEY_WPM)  // two dits of silence
+			s_guard_break = true;
+		if (s_guard_locked && off_ms >= CW_GUARD_RELEASE_MS) {
+			s_guard_locked = false;
+			return action;
+		}
+		return s_guard_locked ? CW_ACTION_NONE : action;
+	}
+
+	if (!s_guard_keyed && s_guard_break) {
+		s_guard_break = false;
+		s_guard_run_start = now;
+	}
+	s_guard_keyed = true;
+
+	if (s_guard_locked)
+		return CW_ACTION_NONE;
+
+	if (timer_millis_low16_since(s_guard_run_start) >= CW_GUARD_LIMIT_MS) {
+		s_guard_locked = true;
+		*tripped = true;
+		return CW_ACTION_CARRIER_OFF;
+	}
+
+	return action;
+}
+
+// ---------------------------------------------------------------------------
 // CW_AppUpdate  –  called from main.c at approx 1ms cadence (sometimes a little longer)
 // ---------------------------------------------------------------------------
 void CW_AppUpdate(void)
@@ -84,9 +146,7 @@ void CW_AppUpdate(void)
 		return;
 
 	if (!(gTxVfo->Modulation == MODULATION_CW
-#ifdef ENABLE_CODE_PRACTICE
 		|| gCW_CpoActive
-#endif
 	))
 	{
 		// Not in CW mode – paranoid check to end CW TX
@@ -104,12 +164,25 @@ void CW_AppUpdate(void)
 	else
 		action = CW_HandleState();
 
+	// ---- transmit timeout: a stuck key or paddle drops TX and locks keying out ----
+	bool guardTripped;
+	action = CW_GuardFilter(action, &guardTripped);
+	if (guardTripped)
+		CW_StopPlayback();
+
+	if (action == CW_ACTION_CARRIER_ON) {
+		// keying closes the speed popup at the new speed
+		CW_Popup_Close();
+#ifdef ENABLE_CW_ENUNCIATE
+		// keying or macro playback takes over the sidetone from an enunciation
+		CW_EnunciateStop();
+#endif
+	}
+
 	// ---- local-only sidetone path (no RF) ----
 	// Used when recording a macro, reading ADC, breakin disabled, or code practice
 	if ( !gEeprom.CW_BREAKIN_ENABLE || gCW_Recording || gCW_AdcReadActive
-#ifdef ENABLE_CODE_PRACTICE
 		|| gCW_CpoActive
-#endif
 		) {
 		switch (action)
 		{
@@ -144,9 +217,7 @@ void CW_AppUpdate(void)
 					GPIO_ClearBit(&GPIOC->DATA, GPIOC_PIN_FLASHLIGHT);
 				}
 				#endif
-				#ifdef ENABLE_CODE_PRACTICE
 				if (!gCW_CpoActive)  // just stay in ALAM for CPO
-				#endif
 					RADIO_SetModulation(gRxVfo->Modulation);
 				gCW_TxDisplayHoldoff_10ms = 200;
 			break;
@@ -213,6 +284,12 @@ void CW_AppUpdate(void)
 			}
 		default:
 		break;
+	}
+
+	// a timeout drops TX now instead of waiting out the hang time
+	if (guardTripped && gCW_State != CW_INACTIVE) {
+		gPttIsPressed = false;
+		CW_EndTxNow();
 	}
 
 	// ---- suspend timeout → end TX ----

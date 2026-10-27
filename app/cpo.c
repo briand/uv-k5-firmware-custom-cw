@@ -33,7 +33,6 @@
 #include "app/cwmacro.h"
 #endif
 
-#ifdef ENABLE_CODE_PRACTICE
 
 bool gCW_CpoActive = false;
 bool gCW_CpoBacklightOn = true;
@@ -49,6 +48,7 @@ void CPO_Enter(void)
 	s_needs_redraw = true;
 	gRequestDisplayScreen = DISPLAY_CPO;
 	gUpdateDisplay = true;
+	gUpdateStatus = true;	// hide BKIN while in CPO
 	gMonitor = false;
     wpm_changed = false;
     gCW_FlashlightSending = s_flashlight_sending;
@@ -57,6 +57,10 @@ void CPO_Enter(void)
 	BK4819_SetAF(BK4819_AF_ALAM);
 	AUDIO_AudioPathOn();
     CW_ClearTxDisplay();
+#ifdef ENABLE_CW_ENUNCIATE
+    AUDIO_SetCWEnunciate("CPO");
+    gAnotherVoiceID = (VOICE_ID_t)0xFE;
+#endif
 }
 
 void CPO_Exit(void)
@@ -145,4 +149,3 @@ void CPO_ProcessKeys(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 	}
 }
 
-#endif

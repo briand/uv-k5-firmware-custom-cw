@@ -21,8 +21,8 @@ This firmware only supports the Quansheng UVK5 **V1** radio, as per the original
 
 To make room for the CW features, some of the egzumer mods and radio functions have been disabled:
 
-- _disabled_ FM broadcast radio, DTMF dialing/contacts, VOX, NOAA, Air Copy, TX audio bar, low-level backlight, Spectrum
-- Most of these are removed to save program flash space. DTMF contacts are removed specifically to reuse that section of eeprom to store CW message text
+- _disabled_ FM broadcast radio, DTMF, VOX, NOAA, Air Copy, TX audio bar, low-level backlight, Spectrum
+- Most of these are removed to save program flash space. DTMF contacts are removed specifically to reuse that section of eeprom to store CW message text.
 
 This code continues to be available under the Apache 2.0 license.
 
@@ -119,6 +119,7 @@ You'll find the options at the top of "Makefile" ('0' = disable, '1' = enable) .
 | --- | ---- |
 |🧰 **STOCK QUANSHENG FEATURES**||
 | ENABLE_UART | without this you can't configure radio via PC ! |
+| ENABLE_UART_AES_LOCK | stock AES challenge/response lock on PC programming (custom key at 0x0F30). Off = radio always reports no key and answers unlock requests as unlocked |
 | ENABLE_AIRCOPY | easier to just enter frequency with butts |
 | ENABLE_FMRADIO | WBFM VHF broadcast band receiver |
 | ENABLE_NOAA | everything NOAA (only of any use in the USA) |
@@ -127,6 +128,7 @@ You'll find the options at the top of "Makefile" ('0' = disable, '1' = enable) .
 | ENABLE_ALARM | TX alarms |
 | ENABLE_TX1750 | side key 1750Hz TX tone (older style repeater access)|
 | ENABLE_PWRON_PASSWORD | power-on password stuff |
+| ENABLE_DTMF | basic DTMF: PTT ID (UP/DOWN codes, Apollo), live DTMF decoder, DTMF keypad entry (`*` short press) and DTMF keys while transmitting |
 | ENABLE_DTMF_CALLING | DTMF calling fuctionality, sending calls, receiving calls, group calls, contacts list etc. |
 | ENABLE_FLASHLIGHT | enable top flashlight LED (on, blink, SOS) |
 |🧰 **CUSTOM MODS**||

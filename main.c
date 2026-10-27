@@ -34,6 +34,9 @@
 #ifdef ENABLE_CW_MODULATOR
 	#include "app/cwapp.h"
 	#include "app/cwkeyer.h"
+#ifdef ENABLE_CW_ENUNCIATE
+	#include "app/cwenunciate.h"
+#endif
 #endif
 #include "bsp/dp32g030/gpio.h"
 #include "bsp/dp32g030/syscon.h"
@@ -77,7 +80,9 @@ void Main(void)
 		| SYSCON_DEV_CLK_GATE_SPI0_BITS_ENABLE
 		| SYSCON_DEV_CLK_GATE_SARADC_BITS_ENABLE
 		| SYSCON_DEV_CLK_GATE_CRC_BITS_ENABLE
+#ifdef ENABLE_UART_AES_LOCK
 		| SYSCON_DEV_CLK_GATE_AES_BITS_ENABLE
+#endif
 		| SYSCON_DEV_CLK_GATE_PWM_PLUS0_BITS_ENABLE;
 
 
@@ -97,8 +102,10 @@ void Main(void)
 
 	// Not implementing authentic device checks
 
+#ifdef ENABLE_DTMF
 	memset(gDTMF_String, '-', sizeof(gDTMF_String));
 	gDTMF_String[sizeof(gDTMF_String) - 1] = 0;
+#endif
 
 	BK4819_Init();
 
@@ -143,6 +150,23 @@ void Main(void)
 	{
 		gF_LOCK = true;            // flag to say include the hidden menu items
 	}
+#ifdef ENABLE_ENUNCIATE
+	else if (BootMode == BOOT_MODE_BLIND)
+	{	// guaranteed usable radio for a blind operator, whatever was configured before:
+		// prompts on (also gates CW enunciation), side 2 short press reads the display,
+		// side 2 long press opens the CW speed popup, which sends a '5' at each new speed
+		gEeprom.VOICE_PROMPT             = true;
+		gEeprom.KEY_2_SHORT_PRESS_ACTION = ACTION_OPT_SAY_LABEL;
+#ifdef ENABLE_CW_MODULATOR
+		gEeprom.KEY_2_LONG_PRESS_ACTION  = ACTION_OPT_CW_SPEED;
+		// CW enunciation plays on the sidetone, so a sidetone left off would silence it
+		if (gEeprom.CW_SIDETONE_LEVEL == 0)
+			gEeprom.CW_SIDETONE_LEVEL = 2 * 21;  // menu level 2, stored scaled by 21 (see settings.c)
+#endif
+		// save now: gRequestSaveSettings is only serviced on a key press
+		SETTINGS_SaveSettings();
+	}
+#endif
 
 	// count the number of menu items
 	gMenuListCount = 0;
@@ -288,6 +312,9 @@ void Main(void)
 		if (timer_millis_low16_since(s_last_millis) > 0) {
 			s_last_millis = current_millis;
 			CW_AppUpdate();
+#ifdef ENABLE_CW_ENUNCIATE
+			CW_EnunciateUpdate();
+#endif
 		}
 #endif
 

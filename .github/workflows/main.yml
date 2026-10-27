@@ -58,7 +58,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: chirp/uvk5_NR7Y.py
-          asset_name: uvk5_NR7Y.py
+          asset_name: uvk5_NR7Y_${{ env.RELEASE_TAG }}.py
           tag: ${{ github.ref }}
           overwrite: true
           release_name: release ${{ env.RELEASE_TAG }}

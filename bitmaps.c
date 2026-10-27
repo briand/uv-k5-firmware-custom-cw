@@ -249,7 +249,7 @@ const uint8_t BITMAP_TDR2[10] =
 	0b00100010,
 };
 
-#ifdef ENABLE_VOICE
+#ifdef ENABLE_ENUNCIATE
 	const uint8_t BITMAP_VoicePrompt[9] =
 	{
 		0b00000000,

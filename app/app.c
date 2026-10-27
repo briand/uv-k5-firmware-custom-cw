@@ -73,8 +73,12 @@
 #include "ui/ui.h"
 #ifdef ENABLE_CW_MODULATOR
 #include "app/cwkeyer.h"
+#include "app/cwpopup.h"
 #endif
-#ifdef ENABLE_CODE_PRACTICE
+#ifdef ENABLE_CW_ENUNCIATE
+#include "app/cwenunciate.h"
+#endif
+#ifdef ENABLE_CW_MODULATOR
 #include "app/cpo.h"
 #endif
 
@@ -92,7 +96,7 @@ void (*ProcessKeysFunctions[])(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld) 
 	[DISPLAY_MENU] = &MENU_ProcessKeys,
 	[DISPLAY_SCANNER] = &SCANNER_ProcessKeys,
 
-#ifdef ENABLE_CODE_PRACTICE
+#ifdef ENABLE_CW_MODULATOR
 	[DISPLAY_CPO] = &CPO_ProcessKeys,
 #endif
 
@@ -495,7 +499,7 @@ void APP_StartListening(FUNCTION_Type_t function)
 		(gEeprom.VOLUME_GAIN << 4) |     // AF Rx Gain-2
 		(gEeprom.DAC_GAIN    << 0));     // AF DAC Gain (after Gain-1 and Gain-2)
 
-#ifdef ENABLE_VOICE
+#ifdef ENABLE_ENUNCIATE
 	if (gVoiceWriteIndex == 0)       // AM/FM RX mode will be set when the voice has finished
 #endif
 		RADIO_SetModulation(gRxVfo->Modulation);  // no need, set it now
@@ -626,6 +630,7 @@ static void CheckRadioInterrupts(void)
 //		if (ctcss_shift > 0)
 //			g_CTCSS_Lost = true;
 
+#ifdef ENABLE_DTMF
 		if (interrupts.dtmf5ToneFound) {	
 			const char c = DTMF_GetCharacter(BK4819_GetDTMF_5TONE_Code()); // save the RX'ed DTMF character
 			if (c != 0xff) {
@@ -660,6 +665,7 @@ static void CheckRadioInterrupts(void)
 				}
 			}
 		}
+#endif
 
 		if (interrupts.cssTailFound)
 			g_CxCSS_TAIL_Found = true;
@@ -707,18 +713,10 @@ static void CheckRadioInterrupts(void)
 #endif
 
 		if (interrupts.sqlLost) {
-#ifdef ENABLE_CW_MODULATOR
-			// When monitor mode is off for CW/USB, the noise floor in the CW/SSB
-			// RX path often exceeds the squelch threshold, so the BK4819 fires
-			// sqlLost immediately. Suppress it here so audio stays muted and
-			// gCurrentFunction stays in FOREGROUND rather than RECEIVE/INCOMING.
-			if (!((gRxVfo->Modulation == MODULATION_CW ||
-			       gRxVfo->Modulation == MODULATION_USB) && !gMonitor))
-#endif
-			{
-				g_SquelchLost = true;
-				BK4819_ToggleGpioOut(BK4819_GPIO6_PIN2_GREEN, true);
-			}
+			// CW/USB no longer drop this with monitor off: their squelch is RSSI-only
+			// (RADIO_ConfigureSquelchAndOutputPower), so the noise floor doesn't trip it
+			g_SquelchLost = true;
+			BK4819_ToggleGpioOut(BK4819_GPIO6_PIN2_GREEN, true);
 		}
 
 		if (interrupts.sqlFound) {
@@ -863,7 +861,7 @@ void APP_Update(void)
 		return;
 #endif
 
-#ifdef ENABLE_VOICE
+#ifdef ENABLE_ENUNCIATE
 	if (!SCANNER_IsScanning() && gScanStateDir != SCAN_OFF && gScheduleScanListen && !gPttIsPressed && gVoiceWriteIndex == 0)
 #else
 	if (!SCANNER_IsScanning() && gScanStateDir != SCAN_OFF && gScheduleScanListen && !gPttIsPressed)
@@ -873,7 +871,7 @@ void APP_Update(void)
 	}
 
 #ifdef ENABLE_NOAA
-#ifdef ENABLE_VOICE
+#ifdef ENABLE_ENUNCIATE
 		if (gEeprom.DUAL_WATCH == DUAL_WATCH_OFF && gIsNoaaMode && gScheduleNOAA && gVoiceWriteIndex == 0)
 #else
 		if (gEeprom.DUAL_WATCH == DUAL_WATCH_OFF && gIsNoaaMode && gScheduleNOAA)
@@ -894,7 +892,7 @@ void APP_Update(void)
 		&& gScanStateDir == SCAN_OFF
 		&& !gPttIsPressed
 		&& gCurrentFunction != FUNCTION_POWER_SAVE
-#ifdef ENABLE_VOICE
+#ifdef ENABLE_ENUNCIATE
 		&& gVoiceWriteIndex == 0
 #endif
 #ifdef ENABLE_FMRADIO
@@ -955,7 +953,7 @@ void APP_Update(void)
 	}
 
 	if (gPowerSaveCountdownExpired && gCurrentFunction == FUNCTION_POWER_SAVE
-#ifdef ENABLE_VOICE
+#ifdef ENABLE_ENUNCIATE
 		&& gVoiceWriteIndex == 0
 #endif
 	) {
@@ -964,6 +962,19 @@ void APP_Update(void)
 		if (gRxIdleMode)
 		{
 			BK4819_Conditional_RX_TurnOn_and_GPIO6_Enable();
+
+			// Drain any interrupt latched while RX was powering back up from
+			// sleep (AGC/RSSI settling can trip a spurious SQUELCH_LOST).
+			// Mirrors the flush RADIO_SetupRegisters does before re-arming
+			// squelch, which is why dual watch (always goes through
+			// RADIO_SetupRegisters on every wake) doesn't see this glitch but a
+			// plain wake here did. REG_3F (interrupt enable) isn't touched by
+			// sleep/wake, so if a real signal is still present the BK4819 will
+			// re-latch a fresh SQUELCH_LOST once we're done draining.
+			while (BK4819_ReadRegister(BK4819_REG_0C) & 1u) {
+				BK4819_WriteRegister(BK4819_REG_02, 0);
+				SYSTEM_DelayMs(1);
+			}
 
 #ifdef ENABLE_VOX
 			if (gEeprom.VOX_SWITCH)
@@ -1164,9 +1175,10 @@ void APP_TimeSlice10ms(void)
 	}
 	// Update playback indicator
 	CW_PlaybackIndicatorDeadline();
+	CW_Popup_Tick10ms();
 #endif
 
-#ifdef ENABLE_CODE_PRACTICE
+#ifdef ENABLE_CW_MODULATOR
 	if (gCW_CpoActive) {
 		CPO_Tick();
 	}
@@ -1303,6 +1315,7 @@ void APP_TimeSlice10ms(void)
 
 void cancelUserInputModes(void)
 {
+#ifdef ENABLE_DTMF
 	if (gDTMF_InputMode || gDTMF_InputBox_Index > 0)
 	{
 		DTMF_clear_input_box();
@@ -1310,6 +1323,7 @@ void cancelUserInputModes(void)
 		gRequestDisplayScreen = DISPLAY_MAIN;
 		gUpdateDisplay        = true;
 	}
+#endif
 
 	if (gWasFKeyPressed || gKeyInputCountdown > 0 || gInputBoxIndex > 0)
 	{
@@ -1348,6 +1362,7 @@ void APP_TimeSlice500ms(void)
 		}
 	}
 
+#ifdef ENABLE_DTMF
 	if (gDTMF_RX_live_timeout > 0)
 	{
 		#ifdef ENABLE_RSSI_BAR
@@ -1365,6 +1380,7 @@ void APP_TimeSlice500ms(void)
 			}
 		}
 	}
+#endif
 
 	if (gMenuCountdown > 0) {
 #ifdef ENABLE_CW_MODULATOR
@@ -1470,9 +1486,12 @@ void APP_TimeSlice500ms(void)
 		&& gScreenToDisplay != DISPLAY_AIRCOPY
 #endif
 	) {
-		if (gEeprom.AUTO_KEYPAD_LOCK && gKeyLockCountdown > 0 && !gDTMF_InputMode
+		if (gEeprom.AUTO_KEYPAD_LOCK && gKeyLockCountdown > 0
+#ifdef ENABLE_DTMF
+			&& !gDTMF_InputMode
+#endif
 			&& gScreenToDisplay != DISPLAY_MENU
-#ifdef ENABLE_CODE_PRACTICE
+#ifdef ENABLE_CW_MODULATOR
 			&& !gCW_CpoActive
 #endif
 			&& --gKeyLockCountdown == 0)
@@ -1488,7 +1507,11 @@ void APP_TimeSlice500ms(void)
 				BACKLIGHT_TurnOff();
 			}
 
-			if (gInputBoxIndex > 0 || gDTMF_InputMode) {
+			if (gInputBoxIndex > 0
+#ifdef ENABLE_DTMF
+				|| gDTMF_InputMode
+#endif
+			) {
 				AUDIO_PlayBeep(BEEP_500HZ_60MS_DOUBLE_BEEP_OPTIONAL);
 			}
 /*
@@ -1501,7 +1524,9 @@ void APP_TimeSlice500ms(void)
 				RADIO_SetupRegisters(true);
 			}
 */
+#ifdef ENABLE_DTMF
 			DTMF_clear_input_box();
+#endif
 
 			gWasFKeyPressed  = false;
 			gInputBoxIndex   = 0;
@@ -1606,7 +1631,7 @@ static void ALARM_Off(void)
 
 static void ProcessKey(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 {
-#ifdef ENABLE_CODE_PRACTICE
+#ifdef ENABLE_CW_MODULATOR
 	if (gCW_CpoActive) {
 		if (Key == KEY_EXIT) {
 			CPO_Exit();
@@ -1676,12 +1701,14 @@ static void ProcessKey(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 		}
 
 		if (Key == KEY_EXIT && bKeyHeld) { // exit key held pressed
+#ifdef ENABLE_DTMF
 			// clear the live DTMF decoder
 			if (gDTMF_RX_live[0] != 0) {
 				memset(gDTMF_RX_live, 0, sizeof(gDTMF_RX_live));
 				gDTMF_RX_live_timeout = 0;
 				gUpdateDisplay        = true;
 			}
+#endif
 
 			// cancel user input
 			cancelUserInputModes();
@@ -1818,10 +1845,14 @@ if (gCurrentFunction == FUNCTION_TRANSMIT) {
 				Code = 0xFE;
 			}
 			else {
+#ifdef ENABLE_DTMF
 				Code = DTMF_GetCharacter(Key - KEY_0);
 				if (Code == 0xFF)
 					goto Skip;
 				// transmit DTMF keys
+#else
+				goto Skip;
+#endif
 			}
 
 			if (!bKeyPressed || bKeyHeld) {
@@ -2000,11 +2031,20 @@ Skip:
 		gFlagPrepareTX = false;
 	}
 
-#ifdef ENABLE_VOICE
+#ifdef ENABLE_ENUNCIATE
 	if (gAnotherVoiceID != VOICE_ID_INVALID) {
+#ifdef ENABLE_VOICE
 		if (gAnotherVoiceID < 76)
 			AUDIO_SetVoiceID(0, gAnotherVoiceID);
-		AUDIO_PlaySingleVoice(false);
+#endif
+#ifdef ENABLE_CW_ENUNCIATE
+		if (gEnunciateMode == ENUNCIATE_CW)
+			CW_EnunciateStart();
+#endif
+#ifdef ENABLE_VOICE
+		if (gEnunciateMode == ENUNCIATE_VOICE)
+			AUDIO_PlaySingleVoice(false);
+#endif
 		gAnotherVoiceID = VOICE_ID_INVALID;
 	}
 #endif

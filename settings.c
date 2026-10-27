@@ -129,8 +129,10 @@ void SETTINGS_InitEEPROM(void)
 
 	// 0EA0..0EA7
 	EEPROM_ReadBuffer(0x0EA0, Data, 8);
-	#ifdef ENABLE_VOICE
-	gEeprom.VOICE_PROMPT = (Data[0] < 3) ? Data[0] : VOICE_PROMPT_ENGLISH;
+	#ifdef ENABLE_ENUNCIATE
+	// only the old CHINESE(1)/ENGLISH(2) values mean on; erased (0xFF), or the 0xFF
+	// written by builds without voice, defaults to off
+	gEeprom.VOICE_PROMPT = (Data[0] == 1 || Data[0] == 2);
 	#endif
 	#ifdef ENABLE_RSSI_BAR
 		if((Data[1] < 200 && Data[1] > 90) && (Data[2] < Data[1]-9 && Data[1] < 160  && Data[2] > 50)) {
@@ -201,6 +203,7 @@ void SETTINGS_InitEEPROM(void)
 	}
 #endif
 
+#ifdef ENABLE_DTMF
 	// 0EF8..0F07
 	EEPROM_ReadBuffer(0x0EF8, Data, sizeof(gEeprom.DTMF_UP_CODE));
 	if (DTMF_ValidateCodes((char *)Data, sizeof(gEeprom.DTMF_UP_CODE))) {
@@ -216,6 +219,7 @@ void SETTINGS_InitEEPROM(void)
 	} else {
 		strcpy(gEeprom.DTMF_DOWN_CODE, "54321");
 	}
+#endif
 
 	// 0F18..0F1F
 	EEPROM_ReadBuffer(0x0F18, Data, 8);
@@ -247,6 +251,11 @@ void SETTINGS_InitEEPROM(void)
 	gEeprom.CW_ADC_CABLE_10K = (val10k & 0x8000) ? 379 : (val10k & 0xFFF);
 	uint16_t val20k = (Data[6] | (Data[7] << 8));
 	gEeprom.CW_ADC_CABLE_20K = (val20k & 0x8000) ? 190 : (val20k & 0xFFF);
+
+	// 0F28..0F2F: second CW block. Unused before, so erased 0xFF reads as the defaults.
+	EEPROM_ReadBuffer(0x0F28, Data, 8);
+	// Data[0]: proper roger dah length in dits, 0xFF or out of range = default
+	gEeprom.CW_ROGER_DAH_DITS = (Data[0] >= CW_ROGER_DAH_DITS_MIN && Data[0] <= CW_ROGER_DAH_DITS_MAX) ? Data[0] : CW_ROGER_DAH_DITS_DEFAULT;
 #endif
 
 	// 0F40..0F47
@@ -287,6 +296,7 @@ void SETTINGS_InitEEPROM(void)
 		}
 	}
 
+#ifdef ENABLE_UART_AES_LOCK
 	// 0F30..0F3F
 	EEPROM_ReadBuffer(0x0F30, gCustomAesKey, sizeof(gCustomAesKey));
 	bHasCustomAesKey = false;
@@ -298,6 +308,7 @@ void SETTINGS_InitEEPROM(void)
 			return;
 		}
 	}
+#endif
 }
 
 void SETTINGS_LoadCalibration(void)
@@ -540,8 +551,8 @@ void SETTINGS_SaveSettings(void)
 	EEPROM_WriteBuffer(0x0E98, Password);
 
 	memset(State, 0xFF, sizeof(State));
-#ifdef ENABLE_VOICE
-	State[0] = gEeprom.VOICE_PROMPT;
+#ifdef ENABLE_ENUNCIATE
+	State[0] = gEeprom.VOICE_PROMPT ? 2 : 0;	// 2 = ENG on older firmware
 #endif
 #ifdef ENABLE_RSSI_BAR
 	State[1] = gEeprom.S0_LEVEL;
@@ -609,6 +620,11 @@ void SETTINGS_SaveSettings(void)
 	State[6] = gEeprom.CW_ADC_CABLE_20K & 0xFF;
 	State[7] = (gEeprom.CW_ADC_CABLE_20K >> 8) & 0x7F;
 	EEPROM_WriteBuffer(0x0F20, State);
+
+	// 0F28..0F2F: second CW block, Data[1..7] free (0xFF)
+	memset(State, 0xff, sizeof(State));
+	State[0] = gEeprom.CW_ROGER_DAH_DITS;
+	EEPROM_WriteBuffer(0x0F28, State);
 #endif
 
 	memset(State, 0xFF, sizeof(State));

@@ -73,7 +73,7 @@ static CW_KeyerFSMState_t s_KeyerFSMState = CWK_STATE_IDLE;
 typedef enum {
     BUG_STATE_IDLE = 0,
     BUG_STATE_DIT_ELEMENT,  // carrier on, timing dit duration
-    BUG_STATE_DIT_GAP,      // carrier off, inter-element gap (only while dit held)
+    BUG_STATE_DIT_GAP,      // carrier off, inter-element gap after a dit or a dah
     BUG_STATE_DAH_HOLD,     // carrier on, operator-held dah
     BUG_STATE_CHAR_GAP,     // carrier off, timing inter-char gap (mirrors CWK_STATE_INTER_CHAR_GAP)
     BUG_STATE_WORD_GAP,     // carrier off, timing inter-word gap (mirrors CWK_STATE_INTER_WORD_GAP)
@@ -81,6 +81,8 @@ typedef enum {
 
 static CW_BugFSMState_t s_bug_state       = BUG_STATE_IDLE;
 static uint16_t         s_bug_phase_start = 0;
+static bool             s_bug_after_dah   = false;  // the current BUG_STATE_DIT_GAP follows a dah
+static bool             s_bug_dit_memory  = false;  // a dit flicked during a dah or the gap after it
 
 // Internal keyer runtime state
 static uint16_t       s_dit_count  = 0;      // duration in timer ticks (16-bit)
@@ -101,6 +103,7 @@ static uint16_t s_playback_pos = 0; // index into playback buffer
 static uint8_t s_play_char_pattern = 0; // current char morse pattern (LSB-first)
 static uint8_t s_play_char_len = 0; // number of elements in current char
 static uint8_t s_play_elem_index = 0; // current element index within char
+static bool s_play_long_dah = false; // proper roger: hold each dah for gEeprom.CW_ROGER_DAH_DITS
 
 // Playback FSM states
 typedef enum {
@@ -137,6 +140,8 @@ void CW_KeyerResetRuntime(void)
     s_last_handkey_ptt = false;
     s_bug_state = BUG_STATE_IDLE;
     s_bug_phase_start = 0;
+    s_bug_after_dah = false;
+    s_bug_dit_memory = false;
 
     // clear any stale edge memory
     CW_HW_ResetKeySamples();
@@ -221,10 +226,21 @@ static void CW_KeyerInit()
     }
 
     bool uses_port_ground = (key_input_mode & CW_KEY_FLAG_PORT_GROUND) != 0;
-    bool uses_port_ring   = (key_input_mode & CW_KEY_FLAG_PORT_RING) != 0;
     bool uses_adc         = (key_input_mode & CW_KEY_FLAG_ADC) != 0;
 
-    CW_ConfigurePortRing(uses_port_ring);
+    // Handkey-family modes have no timing engine, so nothing will ever decode
+    // a fresh character into the TX display while active. Clear out whatever
+    // was left behind by a prior paddle/macro session so it can't resurface
+    // (e.g. via the post-TX holdoff window) and look like a live decode.
+    if (key_input_mode & CW_KEY_FLAG_NO_KEYER) {
+        CW_ClearTxDisplay();
+        gCW_TxDisplayHoldoff_10ms = 0;
+    }
+
+    // Every mode that sets PORT_RING also sets PORT_GROUND, and Port HandKey mode
+    // (PORT_GROUND without PORT_RING) also needs the ring pin configured since it
+    // treats either port contact as the key - so PORT_GROUND alone decides it.
+    CW_ConfigurePortRing(uses_port_ground);
     CW_ConfigureADCforCECPaddles(uses_adc);
     if (!uses_adc && uses_port_ground)
         CW_ConfigurePortGround(true);
@@ -236,17 +252,12 @@ static void CW_KeyerInit()
 }
 
 // --- Macro playback API implementation ---
-void CW_StartMacroPlayback(uint8_t macroIndex, bool repeat)
-{	
-    // Do nothing if recording or playback already in progress
-    if (gCW_Recording || gCW_PlaybackActive) return;
 
-    // Load the macro into a local buffer (decoded with spaces)
-    memset(s_playback_buf, 0, sizeof(s_playback_buf));
-    CW_LoadMacro(macroIndex, s_playback_buf, sizeof(s_playback_buf));
+// Prime the playback FSM to send whatever is in s_playback_buf from the start
+static void CW_BeginPlayback(bool repeat)
+{
     s_playback_buf_len = (uint16_t)strlen(s_playback_buf);
     s_playback_pos = 0;
-    gCW_PlaybackMacroIndex = macroIndex;
     s_play_elem_index = 0;
     s_play_char_len = 0;
     s_play_char_pattern = 0;
@@ -255,12 +266,25 @@ void CW_StartMacroPlayback(uint8_t macroIndex, bool repeat)
     gCW_PlaybackRepeat = repeat;
     gCW_MessageRepeatCountdown_500ms = 0;  // Clear any pending countdown
 
-    // Clear TX display and prime the playback FSM to start immediately
-    CW_ClearTxDisplay();
+    // Prime the playback FSM to start immediately
     s_play_space_pending = false;
     s_pb_state = PB_STATE_INTER_CHAR_GAP;
     s_elem_start_count = timer_millis_low16();
     gCW_PlaybackActive = (s_playback_buf_len > 0);
+}
+
+void CW_StartMacroPlayback(uint8_t macroIndex, bool repeat)
+{
+    // Do nothing if recording or playback already in progress
+    if (gCW_Recording || gCW_PlaybackActive) return;
+
+    // Load the macro into a local buffer (decoded with spaces)
+    memset(s_playback_buf, 0, sizeof(s_playback_buf));
+    CW_LoadMacro(macroIndex, s_playback_buf, sizeof(s_playback_buf));
+    gCW_PlaybackMacroIndex = macroIndex;
+    s_play_long_dah = false;
+    CW_ClearTxDisplay();
+    CW_BeginPlayback(repeat);
 
 #if CW_KEYER_DEBUG
     if (gCW_PlaybackActive) {
@@ -269,6 +293,23 @@ void CW_StartMacroPlayback(uint8_t macroIndex, bool repeat)
         UART_Send(buf, strlen(buf));
     }
 #endif
+}
+
+// Proper roger: R with the dah held for CWrgr dits (default 9), di-daaaaaaaaah-dit
+void CW_StartProperRoger(void)
+{
+    if (gCW_Recording || gCW_PlaybackActive) return;
+
+    strcpy(s_playback_buf, "R");
+    s_play_long_dah = true;
+    CW_BeginPlayback(false);
+
+    // Skip the char-gap lead-in so the first dit keys on the next poll. Reaching
+    // the side key already takes longer than a char gap after any keyed element.
+    s_elem_start_count -= s_char_gap_count;
+
+    // Keep what was keyed before so the R reads as a reply to it
+    s_play_space_pending = (gCW_TX_DisplayIndex > 0);
 }
 
 // Stop playback immediately (user interrupted)
@@ -299,7 +340,9 @@ CW_Action_t CW_PlaybackHandleState(void)
 
     switch (s_pb_state) {
     case PB_STATE_ACTIVE_ELEMENT: {
-        const uint16_t target = s_active_is_dit ? s_dit_count : s_dah_count;
+        const uint16_t target = s_active_is_dit ? s_dit_count
+                              : s_play_long_dah ? gEeprom.CW_ROGER_DAH_DITS * s_dit_count
+                              : s_dah_count;
         const uint16_t elapsed = timer_millis_low16_since(s_elem_start_count);
         if (elapsed < target) {
             return CW_ACTION_CARRIER_HOLD_ON;
@@ -325,9 +368,11 @@ CW_Action_t CW_PlaybackHandleState(void)
                 s_pb_state = PB_STATE_ACTIVE_ELEMENT;
                 return CW_ACTION_CARRIER_ON;
             } else {
-                // Char complete - go to char gap
+                // Char complete - go to char gap. Keep s_elem_start_count at the
+                // element-end origin (set at element end above) so char/word gaps
+                // are one timeline measured from the last keyed element, like the
+                // recorder in CW_HandleState() - do not reset it here.
                 s_pb_state = PB_STATE_INTER_CHAR_GAP;
-                s_elem_start_count = cur_count;
                 return CW_ACTION_NONE;
             }
         }
@@ -356,10 +401,11 @@ CW_Action_t CW_PlaybackHandleState(void)
         }
         char ch = s_playback_buf[s_playback_pos++];
         if (ch == ' ') {
-            // set pending space for next visible character and play word gap
+            // set pending space for next visible character and play word gap.
+            // Origin stays at the last element end (single timeline), so the
+            // word boundary lands at 7 units total, not 3 (char gap) + 7.
             s_play_space_pending = true;
             s_pb_state = PB_STATE_INTER_WORD_GAP;
-            s_elem_start_count = cur_count;
             return CW_ACTION_NONE;
         }
         // Update TX centerline display with the next char (respect pending space)
@@ -389,9 +435,10 @@ CW_Action_t CW_PlaybackHandleState(void)
     case PB_STATE_INTER_WORD_GAP: {
         const uint16_t elapsed = timer_millis_low16_since(s_elem_start_count);
         if (elapsed >= s_word_gap_count) {
-            // advance to next char
+            // Word gap done - advance to char-gap state with the same origin
+            // preserved. elapsed (>=7) already exceeds s_char_gap_count (3), so
+            // the next char is read immediately with no extra wait.
             s_pb_state = PB_STATE_INTER_CHAR_GAP;
-            s_elem_start_count = cur_count;
         }
         return CW_ACTION_NONE;
         break;
@@ -437,8 +484,10 @@ bool CW_CheckKeyerInputs(uint8_t new_mode)
     CW_KeyerDeinit();
 
     // Determine if we need to configure port pins for this mode (use bit flags)
+    // PORT_GROUND alone decides whether the ring pin needs checking too: every
+    // PORT_RING mode also sets PORT_GROUND, and Port HandKey mode treats either
+    // port contact as the key.
     bool uses_port_ground = (new_mode & CW_KEY_FLAG_PORT_GROUND);
-    bool uses_port_ring = (new_mode & CW_KEY_FLAG_PORT_RING);
     bool uses_adc = (new_mode & CW_KEY_FLAG_ADC);
 
     // Handkey mode without port ground doesn't need further validation
@@ -449,7 +498,7 @@ bool CW_CheckKeyerInputs(uint8_t new_mode)
     }
 
     // Button-only modes don't need validation (no port pins to check)
-    if (!uses_port_ground && !uses_port_ring && !uses_adc) {
+    if (!uses_port_ground && !uses_adc) {
         return true;
     }
     
@@ -464,13 +513,7 @@ bool CW_CheckKeyerInputs(uint8_t new_mode)
         UART_Send("Configuring port ground for CW keyer check\r\n", 44);
 #endif
         CW_ConfigurePortGround(true);
-    }
-    if( uses_port_ring) {
-#if CW_KEYER_DEBUG
-        UART_Send("Configuring port ring for CW keyer check\r\n", 42);
-#endif
         CW_ConfigurePortRing(true);
-        
     } else if(uses_adc) {
 #if CW_KEYER_DEBUG
         UART_Send("Configuring ADC for CW keyer check\r\n", 38);
@@ -551,6 +594,12 @@ CW_Action_t ptt_action(void)
         bool tip = false, ring = false;
         CW_ReadADCkeys(&tip, &ring);
         ptt = tip || ring;
+    } else if (gEeprom.CW_KEY_INPUT & CW_KEY_FLAG_PORT_GROUND) {
+        // Port HandKey: either port contact (tip or ring) acts as a straight key.
+        // (Only reached for NO_KEYER modes - see the caller in CW_HandleState.)
+        bool tip = false, ring = false;
+        CW_ReadKeysForMode(gEeprom.CW_KEY_INPUT, &tip, &ring);
+        ptt = tip || ring;
     } else
     {    // Read PTT button (PC5) - active low
         ptt = !(GPIOC->DATA & (1U << GPIOC_PIN_PTT));
@@ -611,25 +660,41 @@ static CW_Action_t CW_HandleBugState(void)
         return CW_ACTION_CARRIER_HOLD_ON;
 
     case BUG_STATE_DIT_GAP:
+        // Dah takes priority immediately; a remembered dit can't go ahead of it
         if (in.dah) {
+            s_bug_after_dah = false;
+            s_bug_dit_memory = false;
             s_bug_phase_start = now;
             s_bug_state = BUG_STATE_DAH_HOLD;
             return CW_ACTION_CARRIER_ON;
         }
-        if (!in.dit) {
-            // Released during gap - no next element, start the char gap
-            s_bug_phase_start = now;
-            s_bug_state = BUG_STATE_CHAR_GAP;
+        // After a dah, a dit flicked during the gap is remembered, so it still
+        // plays when it's released before the gap ends
+        if (s_bug_after_dah && in.dit_rise) {
+            s_bug_dit_memory = true;
+        }
+        if (timer_millis_low16_since(s_bug_phase_start) < s_gap_count) {
+            // Let the gap complete before deciding what to do next, so a dit
+            // paddle glitching open mid-gap can't cut the run short
             return CW_ACTION_NONE;
         }
-        if (timer_millis_low16_since(s_bug_phase_start) >= s_gap_count) {
-            s_bug_phase_start = now;
+        s_bug_phase_start = now;
+        s_bug_after_dah = false;
+        if (in.dit || s_bug_dit_memory) {
+            s_bug_dit_memory = false;
             s_bug_state = BUG_STATE_DIT_ELEMENT;
             return CW_ACTION_CARRIER_ON;
         }
+        // Released by the end of the full gap - no next element, start the char gap
+        s_bug_state = BUG_STATE_CHAR_GAP;
         return CW_ACTION_NONE;
 
     case BUG_STATE_DAH_HOLD:
+        // A dit flicked while the dah is still down (rolling from dah to dit) is
+        // remembered and plays after the gap that follows the dah
+        if (in.dit_rise) {
+            s_bug_dit_memory = true;
+        }
         if (in.dah) {
             return CW_ACTION_CARRIER_HOLD_ON;
         }
@@ -640,6 +705,7 @@ static CW_Action_t CW_HandleBugState(void)
         }
 
         s_bug_phase_start = now;
+        s_bug_after_dah = true;
         s_bug_state = BUG_STATE_DIT_GAP; // make an element gap
         return CW_ACTION_CARRIER_OFF;
 

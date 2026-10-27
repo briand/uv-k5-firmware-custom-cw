@@ -25,6 +25,7 @@
 #ifdef ENABLE_CW_MODULATOR
 	#include "app/cwmacro.h"
 	#include "app/cwkeyer.h"
+	#include "app/cwpopup.h"
 	#include "driver/timer.h"
 	#include "bsp/dp32g030/timer.h"  /* for TIMERBASE0_LOW_CNT access */
 #endif
@@ -195,6 +196,35 @@ void DrawCWDecodeBar(void)
 	}
 
 	ST7565_BlitLine(line);
+}
+
+// Arrowhead 4 px deep and 7 px across with its tip at (x, y), pointing up (dy -1) or down (dy 1)
+static void DrawCWPopupArrow(uint8_t x, uint8_t y, int8_t dy)
+{
+	for (int8_t depth = 0; depth < 4; depth++)
+		for (int8_t side = -depth; side <= depth; side++)
+			UI_DrawPixelBuffer(gFrameBuffer, x + side, y - depth * dy, true);
+}
+
+// Boxed popup over the middle of the main screen, lines 1-5 between x=7 and x=120
+static void DrawCWPopup(void)
+{
+	char value[8];
+
+	for (uint8_t line = 1; line <= 5; line++)
+		memset(gFrameBuffer[line] + 7, 0, 114);
+
+	UI_DrawRectangleBuffer(gFrameBuffer, 8, 9, 119, 46, true);
+#ifdef ENABLE_SMALL_BOLD
+	UI_PrintStringSmallBold("CW SPEED", 9, 118, 2);
+#else
+	UI_PrintStringSmallNormal("CW SPEED", 9, 118, 2);
+#endif
+	sprintf(value, "%u WPM", gEeprom.CW_KEY_WPM);
+	UI_PrintString(value, 9, 118, 3, 8);
+
+	DrawCWPopupArrow(17, 34, -1);  // rows 34-37
+	DrawCWPopupArrow(17, 44, 1);   // rows 41-44
 }
 #endif
 
@@ -389,7 +419,7 @@ void UI_DisplayMain(void)
 			}
 #endif
 
-
+#ifdef ENABLE_DTMF
 			if (gDTMF_InputMode
 #ifdef ENABLE_DTMF_CALLING
 				|| gDTMF_CallState != DTMF_CALL_STATE_NONE || gDTMF_IsTx
@@ -434,6 +464,7 @@ void UI_DisplayMain(void)
 				center_line = CENTER_LINE_IN_USE;
 				continue;
 			}
+#endif
 
 			// highlight the selected/used VFO with a marker
 			if (isMainVFO)
@@ -746,6 +777,12 @@ void UI_DisplayMain(void)
 	UI_MAIN_PrintAGC(false);
 #endif
 
+#ifdef ENABLE_CW_MODULATOR
+	const bool showCWPopup = CW_Popup_IsOpen() && gCurrentFunction != FUNCTION_TRANSMIT;
+	if (showCWPopup && center_line == CENTER_LINE_NONE)
+		center_line = CENTER_LINE_CW_POPUP;  // popup covers the middle line, keep the RSSI refresh off it
+#endif
+
 	if (center_line == CENTER_LINE_NONE)
 	{	// we're free to use the middle line
 
@@ -798,6 +835,7 @@ void UI_DisplayMain(void)
 #endif
 		if (rx || gCurrentFunction == FUNCTION_FOREGROUND || gCurrentFunction == FUNCTION_POWER_SAVE)
 		{
+#ifdef ENABLE_DTMF
 			#if 1
 				if (gSetting_live_DTMF_decoder && gDTMF_RX_live[0] != 0)
 				{	// show live DTMF decode
@@ -832,9 +870,13 @@ void UI_DisplayMain(void)
 					UI_PrintStringSmallNormal(String, 2, 0, 3);
 				}
 			#endif
+#endif
 
 #ifdef ENABLE_SHOW_CHARGE_LEVEL
-			else if (gChargingWithTypeC)
+#ifdef ENABLE_DTMF
+			else
+#endif
+			if (gChargingWithTypeC)
 			{	// charging .. show the battery state
 				if (gScreenToDisplay != DISPLAY_MAIN
 #ifdef ENABLE_DTMF_CALLING
@@ -853,6 +895,11 @@ void UI_DisplayMain(void)
 #endif
 		}
 	}
+
+#ifdef ENABLE_CW_MODULATOR
+	if (showCWPopup)
+		DrawCWPopup();
+#endif
 
 	ST7565_BlitFullScreen();
 }

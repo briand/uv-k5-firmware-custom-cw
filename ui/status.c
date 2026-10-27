@@ -21,6 +21,9 @@
 	#include "app/fm.h"
 #endif
 #include "app/scanner.h"
+#ifdef ENABLE_CW_MODULATOR
+	#include "app/cpo.h"
+#endif
 #include "bitmaps.h"
 #include "driver/keyboard.h"
 #include "driver/st7565.h"
@@ -98,9 +101,9 @@ void UI_DisplayStatus()
 	}
 	x += 10;  // font character width
 
-#ifdef ENABLE_VOICE
+#ifdef ENABLE_ENUNCIATE
 	// VOICE indicator
-	if (gEeprom.VOICE_PROMPT != VOICE_PROMPT_OFF){
+	if (gEeprom.VOICE_PROMPT){
 		memcpy(line + x, BITMAP_VoicePrompt, sizeof(BITMAP_VoicePrompt));
 		x1 = x + sizeof(BITMAP_VoicePrompt);
 	}
@@ -133,7 +136,8 @@ void UI_DisplayStatus()
 		}
 #endif
 #ifdef ENABLE_CW_MODULATOR
-		if (!_vox_bkin_shown && gCurrentVfo->Modulation == MODULATION_CW && gEeprom.CW_BREAKIN_ENABLE) {
+		// CPO never sends RF, so don't show break-in there even when it's enabled
+		if (!_vox_bkin_shown && gCurrentVfo->Modulation == MODULATION_CW && gEeprom.CW_BREAKIN_ENABLE && !gCW_CpoActive) {
 			memcpy(line + x, BITMAP_BKIN, sizeof(BITMAP_BKIN));
 			x1 = x + sizeof(BITMAP_BKIN) + 1;
 		}

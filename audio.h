@@ -45,7 +45,6 @@ void AUDIO_PlayBeep(BEEP_Type_t Beep);
 
 enum
 {
-	VOICE_ID_CHI_BASE = 0x10U,
 	VOICE_ID_ENG_BASE = 0x60U,
 };
 
@@ -128,6 +127,7 @@ enum VOICE_ID_t
 	VOICE_ID_90                            = 0x4AU,
 	VOICE_ID_END                           = 0x4BU,
 
+	VOICE_ID_PAUSE                         = 0xFDU, // queue-only: silent gap of VOICE_PAUSE_10MS
 	VOICE_ID_INVALID                       = 0xFFU,
 };
 
@@ -145,17 +145,40 @@ static inline bool AUDIO_IsAudioPathOn(void) {
 	return GPIO_CheckBit(&GPIOC->DATA, GPIOC_PIN_AUDIO_PATH) != 0;
 }
 
-#ifdef ENABLE_VOICE
-	extern VOICE_ID_t        gVoiceID[8];
+#ifdef ENABLE_ENUNCIATE
+	// one queue shared by voice prompts and CW enunciation, only one plays at a time;
+	// gVoiceWriteIndex != 0 means "enunciation busy" to the rest of the firmware
+	typedef enum {
+		ENUNCIATE_VOICE = 0,	// queue holds VOICE_ID_t clips
+		ENUNCIATE_CW,			// queue holds ASCII chars, ' ' = word gap
+	} ENUNCIATE_Mode_t;
+
+	// longest menu string today is "Side Btn\nIambic\nReversed" (24 chars as CW)
+	#define ENUNCIATE_QUEUE_LEN 24
+
+	extern VOICE_ID_t        gVoiceID[ENUNCIATE_QUEUE_LEN];
 	extern uint8_t           gVoiceReadIndex;
 	extern uint8_t           gVoiceWriteIndex;
+	extern ENUNCIATE_Mode_t  gEnunciateMode;
+	extern VOICE_ID_t        gAnotherVoiceID;
+
+	// stop whatever is playing and empty the queue for a new message
+	void    AUDIO_ClearEnunciateQueue(ENUNCIATE_Mode_t Mode);
+#endif
+
+#ifdef ENABLE_CW_ENUNCIATE
+	void    AUDIO_SetCWEnunciate(const char *pText);
+	void    AUDIO_SetFrequencyCW(uint32_t Frequency);
+#endif
+
+#ifdef ENABLE_VOICE
 	extern volatile uint16_t gCountdownToPlayNextVoice_10ms;
 	extern volatile bool     gFlagPlayQueuedVoice;
-	extern VOICE_ID_t        gAnotherVoiceID;
-	
+
 	void    AUDIO_PlaySingleVoice(bool bFlag);
 	void    AUDIO_SetVoiceID(uint8_t Index, VOICE_ID_t VoiceID);
 	uint8_t AUDIO_SetDigitVoice(uint8_t Index, uint16_t Value);
+	void    AUDIO_SetFrequencyVoice(uint32_t Frequency);
 	void    AUDIO_PlayQueuedVoice(void);
 #endif
 

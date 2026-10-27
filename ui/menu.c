@@ -91,7 +91,7 @@ const t_menu_item MenuList[] =
 	{"BLMax",  VOICE_ID_INVALID,                       MENU_ABR_MAX       },
 	{"BltTRX", VOICE_ID_INVALID,                       MENU_ABR_ON_TX_RX  },
 	{"Beep",   VOICE_ID_BEEP_PROMPT,                   MENU_BEEP          },
-#ifdef ENABLE_VOICE
+#ifdef ENABLE_ENUNCIATE
 	{"Voice",  VOICE_ID_VOICE_PROMPT,                  MENU_VOICE         },
 #endif
 	{"Roger",  VOICE_ID_INVALID,                       MENU_ROGER         },
@@ -104,20 +104,26 @@ const t_menu_item MenuList[] =
 #ifdef ENABLE_DTMF_CALLING
 	{"ANI ID", VOICE_ID_ANI_CODE,                      MENU_ANI_ID        },
 #endif
+#ifdef ENABLE_DTMF
 	{"UPCode", VOICE_ID_INVALID,                       MENU_UPCODE        },
 	{"DWCode", VOICE_ID_INVALID,                       MENU_DWCODE        },
 	{"PTT ID", VOICE_ID_INVALID,                       MENU_PTT_ID        },
 	{"D ST",   VOICE_ID_INVALID,                       MENU_D_ST          },
+#endif
 #ifdef ENABLE_DTMF_CALLING
     {"D Resp", VOICE_ID_INVALID,                       MENU_D_RSP         },
 	{"D Hold", VOICE_ID_INVALID,                       MENU_D_HOLD        },
 #endif
+#ifdef ENABLE_DTMF
 	{"D Prel", VOICE_ID_INVALID,                       MENU_D_PRE         },
+#endif
 #ifdef ENABLE_DTMF_CALLING
 	{"D Decd", VOICE_ID_INVALID,                       MENU_D_DCD         },
 	{"D List", VOICE_ID_INVALID,                       MENU_D_LIST        },
 #endif
+#ifdef ENABLE_DTMF
 	{"D Live", VOICE_ID_INVALID,                       MENU_D_LIVE_DEC    }, // live DTMF decoder
+#endif
 #ifdef ENABLE_AM_FIX
 	{"AM Fix", VOICE_ID_INVALID,                       MENU_AM_FIX        },
 #endif
@@ -138,7 +144,8 @@ const t_menu_item MenuList[] =
 	{"CWmsg3", VOICE_ID_INVALID,                       MENU_CW_MSG3       },
 	{"CWmsg4", VOICE_ID_INVALID,                       MENU_CW_MSG4       },
 	{"CWmrpt", VOICE_ID_INVALID,                       MENU_CW_MSG_REPEAT },
-	{"CWbkin", VOICE_ID_INVALID,                       MENU_CW_BKIN       },
+	{"CWrgr",  VOICE_ID_INVALID,                       MENU_CW_ROGER_DITS },
+	{"CWbkin", VOICE_ID_VOX,       		               MENU_CW_BKIN       },
 #endif
 
 	// hidden menu items from here on
@@ -227,15 +234,6 @@ const char* const gSubMenu_RXMode[] =
 	"CROSS\nBAND", 		// TX on main, RX on secondary
 	"MAIN TX\nDUAL RX" 	// always TX on main, but RX on both
 };
-
-#ifdef ENABLE_VOICE
-	const char gSubMenu_VOICE[][4] =
-	{
-		"OFF",
-		"CHI",
-		"ENG"
-	};
-#endif
 
 const char gSubMenu_SC_REV[][8] =
 {
@@ -397,9 +395,14 @@ const t_sidefunction gSubMenu_SIDEFUNCTIONS[] =
 	{"REPEAT\nCW MSG2", ACTION_OPT_REPEAT_CWMSG2},
 	{"REPEAT\nCW MSG3", ACTION_OPT_REPEAT_CWMSG3},
 	{"REPEAT\nCW MSG4", ACTION_OPT_REPEAT_CWMSG4},
+	{"PROPER\nROGER", ACTION_OPT_CW_PROPER_ROGER},
+	{"CW SPEED", ACTION_OPT_CW_SPEED},
 #endif
 #ifdef ENABLE_SPECTRUM
-	{"SPECTRUM",         ACTION_OPT_SPECTRUM}
+	{"SPECTRUM",         ACTION_OPT_SPECTRUM},
+#endif
+#ifdef ENABLE_ENUNCIATE
+	{"SAY\nLABEL",       ACTION_OPT_SAY_LABEL},
 #endif
 };
 
@@ -456,6 +459,10 @@ uint8_t UI_MENU_GetMenuIdx(uint8_t id)
 }
 
 int32_t gSubMenuSelection;
+
+#ifdef ENABLE_CW_ENUNCIATE
+	char gMenuLabelText[ENUNCIATE_QUEUE_LEN + 9];  // raw text, the CW encoder drops some chars
+#endif
 
 // edit box
 char    edit_original[17]; // a copy of the text before editing so that we can easily test for changes/difference
@@ -684,16 +691,21 @@ void UI_DisplayMenu(void)
 		#ifdef ENABLE_AM_FIX
 			case MENU_AM_FIX:
 		#endif
+		#ifdef ENABLE_ENUNCIATE
+			case MENU_VOICE:
+		#endif
 		case MENU_BCL:
 		case MENU_BEEP:
 		case MENU_S_ADD1:
 		case MENU_S_ADD2:
 		case MENU_STE:
+#ifdef ENABLE_DTMF
 		case MENU_D_ST:
 #ifdef ENABLE_DTMF_CALLING
 		case MENU_D_DCD:
 #endif
 		case MENU_D_LIVE_DEC:
+#endif
 		#ifdef ENABLE_NOAA
 			case MENU_NOAA_S:
 		#endif
@@ -774,12 +786,6 @@ void UI_DisplayMenu(void)
 			strcpy(String, gSubMenu_TOT[gSubMenuSelection]);
 			break;
 
-		#ifdef ENABLE_VOICE
-			case MENU_VOICE:
-				strcpy(String, gSubMenu_VOICE[gSubMenuSelection]);
-				break;
-		#endif
-
 		case MENU_SC_REV:
 			strcpy(String, gSubMenu_SC_REV[gSubMenuSelection]);
 			break;
@@ -813,6 +819,7 @@ void UI_DisplayMenu(void)
 			strcpy(String, gEeprom.ANI_DTMF_ID);
 			break;
 #endif
+#ifdef ENABLE_DTMF
 		case MENU_UPCODE:
 			sprintf(String, "%.8s\n%.8s", gEeprom.DTMF_UP_CODE, gEeprom.DTMF_UP_CODE + 8);
 			break;
@@ -820,6 +827,7 @@ void UI_DisplayMenu(void)
 		case MENU_DWCODE:
 			sprintf(String, "%.8s\n%.8s", gEeprom.DTMF_DOWN_CODE, gEeprom.DTMF_DOWN_CODE + 8);
 			break;
+#endif
 
 #ifdef ENABLE_DTMF_CALLING
 		case MENU_D_RSP:
@@ -830,6 +838,7 @@ void UI_DisplayMenu(void)
 			sprintf(String, "%ds", gSubMenuSelection);
 			break;
 #endif
+#ifdef ENABLE_DTMF
 		case MENU_D_PRE:
 			sprintf(String, "%d*10ms", gSubMenuSelection);
 			break;
@@ -837,6 +846,7 @@ void UI_DisplayMenu(void)
 		case MENU_PTT_ID:
 			strcpy(String, gSubMenu_PTT_ID[gSubMenuSelection]);
 			break;
+#endif
 
 		case MENU_BAT_TXT:
 			strcpy(String, gSubMenu_BAT_TXT[gSubMenuSelection]);
@@ -943,6 +953,10 @@ void UI_DisplayMenu(void)
 			sprintf(String, "%d s", gSubMenuSelection);
 			break;
 
+		case MENU_CW_ROGER_DITS:
+			sprintf(String, "Dah\n%d dits", gSubMenuSelection);
+			break;
+
 		case MENU_CW_MSG1:
 		case MENU_CW_MSG2:
 		case MENU_CW_MSG3:
@@ -1004,6 +1018,12 @@ void UI_DisplayMenu(void)
 			break;
 #endif
 	}
+
+#ifdef ENABLE_CW_ENUNCIATE
+	// grab it before the multi-line split below chops it up; items that drew
+	// themselves leave the last thing they printed in String
+	strncpy(gMenuLabelText, String, sizeof(gMenuLabelText) - 1);
+#endif
 
 	if (!already_printed)
 	{	// we now do multi-line text in a single string
@@ -1070,6 +1090,10 @@ void UI_DisplayMenu(void)
 			UI_GenerateChannelStringEx(String, true, gSubMenuSelection);
 			pPrintStr = String;
 		}
+
+#ifdef ENABLE_CW_ENUNCIATE
+		strncpy(gMenuLabelText, pPrintStr, sizeof(gMenuLabelText) - 1);
+#endif
 
 		// channel number
 		UI_PrintString(pPrintStr, menu_item_x1, menu_item_x2, 0, 8);

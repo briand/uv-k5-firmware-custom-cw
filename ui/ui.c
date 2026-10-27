@@ -35,7 +35,7 @@
 #include "ui/menu.h"
 #include "ui/scanner.h"
 #include "ui/ui.h"
-#ifdef ENABLE_CODE_PRACTICE
+#ifdef ENABLE_CW_MODULATOR
 	#include "ui/cpo.h"
 #endif
 #include "../misc.h"
@@ -53,7 +53,7 @@ void (*UI_DisplayFunctions[])(void) = {
 	[DISPLAY_MENU] = &UI_DisplayMenu,
 	[DISPLAY_SCANNER] = &UI_DisplayScanner,
 
-#ifdef ENABLE_CODE_PRACTICE
+#ifdef ENABLE_CW_MODULATOR
 	[DISPLAY_CPO] = &UI_DisplayCPO,
 #endif
 
@@ -82,7 +82,9 @@ void GUI_SelectNextDisplay(GUI_DisplayType_t Display)
 
 	if (gScreenToDisplay != Display)
 	{
+#ifdef ENABLE_DTMF
 		DTMF_clear_input_box();
+#endif
 
 		gInputBoxIndex       = 0;
 		gIsInSubMenu         = false;

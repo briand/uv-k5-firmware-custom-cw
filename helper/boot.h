@@ -24,6 +24,9 @@ enum BOOT_Mode_t
 {
 	BOOT_MODE_NORMAL = 0,
 	BOOT_MODE_F_LOCK,
+	#ifdef ENABLE_ENUNCIATE
+		BOOT_MODE_BLIND,	// PTT + side 2: voice on, side 2 = SAY LABEL, side 1 = CW SPEED
+	#endif
 	#ifdef ENABLE_AIRCOPY
 		BOOT_MODE_AIRCOPY
 	#endif

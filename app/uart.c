@@ -26,7 +26,9 @@
 #include "board.h"
 #include "bsp/dp32g030/dma.h"
 #include "bsp/dp32g030/gpio.h"
-#include "driver/aes.h"
+#ifdef ENABLE_UART_AES_LOCK
+	#include "driver/aes.h"
+#endif
 #include "driver/backlight.h"
 #include "driver/bk4819.h"
 #include "driver/crc.h"
@@ -122,10 +124,12 @@ typedef struct {
 	} Data;
 } REPLY_0529_t;
 
+#ifdef ENABLE_UART_AES_LOCK
 typedef struct {
 	Header_t Header;
 	uint32_t Response[4];
 } CMD_052D_t;
+#endif
 
 typedef struct {
 	Header_t Header;
@@ -199,16 +203,24 @@ static void SendVersion(void)
 	Reply.Header.ID = 0x0515;
 	Reply.Header.Size = sizeof(Reply.Data);
 	strcpy(Reply.Data.Version, Version);
-	Reply.Data.bHasCustomAesKey = bHasCustomAesKey;
 	Reply.Data.bIsInLockScreen = bIsInLockScreen;
+#ifdef ENABLE_UART_AES_LOCK
+	Reply.Data.bHasCustomAesKey = bHasCustomAesKey;
 	Reply.Data.Challenge[0] = gChallenge[0];
 	Reply.Data.Challenge[1] = gChallenge[1];
 	Reply.Data.Challenge[2] = gChallenge[2];
 	Reply.Data.Challenge[3] = gChallenge[3];
+#else
+	// no programming lock: always report "no custom key" so clients skip the
+	// 0x052D unlock handshake. fields stay in the struct for wire compatibility
+	Reply.Data.bHasCustomAesKey = false;
+	memset(Reply.Data.Challenge, 0, sizeof(Reply.Data.Challenge));
+#endif
 
 	SendReply(&Reply, sizeof(Reply));
 }
 
+#ifdef ENABLE_UART_AES_LOCK
 static bool IsBadChallenge(const uint32_t *pKey, const uint32_t *pIn, const uint32_t *pResponse)
 {
 	unsigned int i;
@@ -227,6 +239,7 @@ static bool IsBadChallenge(const uint32_t *pKey, const uint32_t *pIn, const uint
 
 	return false;
 }
+#endif
 
 // session init, sends back version info and state
 // timestamp is a session id really
@@ -253,7 +266,9 @@ static void CMD_051B(const uint8_t *pBuffer)
 {
 	const CMD_051B_t *pCmd = (const CMD_051B_t *)pBuffer;
 	REPLY_051B_t      Reply;
+#ifdef ENABLE_UART_AES_LOCK
 	bool              bLocked = false;
+#endif
 
 	if (pCmd->Timestamp != Timestamp)
 		return;
@@ -270,10 +285,12 @@ static void CMD_051B(const uint8_t *pBuffer)
 	Reply.Data.Offset = pCmd->Offset;
 	Reply.Data.Size   = pCmd->Size;
 
+#ifdef ENABLE_UART_AES_LOCK
 	if (bHasCustomAesKey)
 		bLocked = gIsLocked;
 
 	if (!bLocked)
+#endif
 		EEPROM_ReadBuffer(pCmd->Offset, Reply.Data.Data, pCmd->Size);
 
 	SendReply(&Reply, pCmd->Size + 8);
@@ -284,15 +301,19 @@ static void CMD_051D(const uint8_t *pBuffer)
 {
 	const CMD_051D_t *pCmd = (const CMD_051D_t *)pBuffer;
 	REPLY_051D_t Reply;
+#ifdef ENABLE_UART_AES_LOCK
 	bool bReloadEeprom;
 	bool bIsLocked;
+#endif
 
 	if (pCmd->Timestamp != Timestamp)
 		return;
 
 	gSerialConfigCountDown_500ms = 12; // 6 sec
-	
+
+#ifdef ENABLE_UART_AES_LOCK
 	bReloadEeprom = false;
+#endif
 
 	#ifdef ENABLE_FMRADIO
 		gFmRadioCountdown_500ms = fm_radio_countdown_500ms;
@@ -302,25 +323,31 @@ static void CMD_051D(const uint8_t *pBuffer)
 	Reply.Header.Size = sizeof(Reply.Data);
 	Reply.Data.Offset = pCmd->Offset;
 
+#ifdef ENABLE_UART_AES_LOCK
 	bIsLocked = bHasCustomAesKey ? gIsLocked : bHasCustomAesKey;
 
 	if (!bIsLocked)
+#endif
 	{
 		unsigned int i;
 		for (i = 0; i < (pCmd->Size / 8); i++)
 		{
 			const uint16_t Offset = pCmd->Offset + (i * 8U);
 
+#ifdef ENABLE_UART_AES_LOCK
 			if (Offset >= 0x0F30 && Offset < 0x0F40)
 				if (!gIsLocked)
 					bReloadEeprom = true;
+#endif
 
 			if ((Offset < 0x0E98 || Offset >= 0x0EA0) || !bIsInLockScreen || pCmd->bAllowPassword)
 				EEPROM_WriteBuffer(Offset, &pCmd->Data[i * 8U]);
 		}
 
+#ifdef ENABLE_UART_AES_LOCK
 		if (bReloadEeprom)
 			SETTINGS_InitEEPROM();
+#endif
 	}
 
 	SendReply(&Reply, sizeof(Reply));
@@ -354,6 +381,7 @@ static void CMD_0529(void)
 	SendReply(&Reply, sizeof(Reply));
 }
 
+#ifdef ENABLE_UART_AES_LOCK
 static void CMD_052D(const uint8_t *pBuffer)
 {
 	const CMD_052D_t *pCmd = (const CMD_052D_t *)pBuffer;
@@ -394,6 +422,23 @@ static void CMD_052D(const uint8_t *pBuffer)
 
 	SendReply(&Reply, sizeof(Reply));
 }
+#else
+// unlock request: there is no lock, so always answer "unlocked" in case a
+// client sends it anyway
+static void CMD_052D(void)
+{
+	REPLY_052D_t Reply;
+
+	#ifdef ENABLE_FMRADIO
+		gFmRadioCountdown_500ms = fm_radio_countdown_500ms;
+	#endif
+	memset(&Reply, 0, sizeof(Reply));
+	Reply.Header.ID   = 0x052E;
+	Reply.Header.Size = sizeof(Reply.Data);
+
+	SendReply(&Reply, sizeof(Reply));
+}
+#endif
 
 // session init, sends back version info and state
 // timestamp is a session id really
@@ -596,7 +641,11 @@ void UART_HandleCommand(void)
 			break;
 	
 		case 0x052D:
+#ifdef ENABLE_UART_AES_LOCK
 			CMD_052D(UART_Command.Buffer);
+#else
+			CMD_052D();
+#endif
 			break;
 	
 		case 0x052F:
